@@ -1,83 +1,84 @@
 class Barco {
-  constructor(x, y, tipo = 'padrao') {
+  constructor(x, y, tipo = 'padrao', img = null) {
     this.x = x;
+    this.yBase = y;
     this.y = y;
-    this.largura = 120;
-    this.altura = 60;
+    this.largura = 130;
+    this.altura = 65;
     this.tipo = tipo;
-    
-    // Configurar propriedades consoante o tipo de barco
-    this.configurarBarco();
+    this.img = img;
+
+    this.direcaoAtual = 1;
+    this.anguloBalanço = 0;
+    this.particulasAgua = [];
+    this.velocidadeBase = 4;
   }
 
-  configurarBarco() {
-    switch (this.tipo) {
-      case 'rapido':
-        this.velocidadeBase = 6;
-        this.cor = color(220, 50, 50); // Vermelho
-        break;
-      case 'pesado':
-        this.velocidadeBase = 2.5;
-        this.cor = color(50, 100, 50); // Verde escuro
-        break;
-      case 'padrao':
-      default:
-        this.velocidadeBase = 4;
-        this.cor = color(200, 200, 200); // Cinzento base
-        break;
-    }
+  definirDirecao(novaDirecao) {
+    this.direcaoAtual = novaDirecao;
   }
 
   atualizar(fatorAudio) {
-    let direcao = 0;
-    
-    // O teclado apenas define a direção pretendida
-    if (keyIsDown(LEFT_ARROW)) {
-      direcao = -1;
-    } else if (keyIsDown(RIGHT_ARROW)) {
-      direcao = 1;
+    if (this.direcaoAtual !== 0 && fatorAudio > 0) {
+      this.mover(this.direcaoAtual, fatorAudio);
+      
+      let posXAgua = this.direcaoAtual === 1 ? this.x : this.x + this.largura;
+      this.particulasAgua.push({
+        x: posXAgua,
+        y: this.y + 40,
+        raio: random(4, 8),
+        opacidade: 255,
+        vx: -this.direcaoAtual * random(1, 3)
+      });
     }
 
-    // O barco só se move se houver intenção (direção) E som acima do limiar
-    // Quanto maior o fatorAudio, mais rápido se move!
-    if (direcao !== 0 && fatorAudio > 0) {
-      this.mover(direcao, fatorAudio);
-    }
-
-    // Restringir o barco aos limites do ecrã
+    this.y = this.yBase + sin(frameCount * 0.05) * 3;
+    this.anguloBalanço = sin(frameCount * 0.03) * 0.03;
     this.x = constrain(this.x, 10, width - this.largura - 10);
+
+    for (let i = this.particulasAgua.length - 1; i >= 0; i--) {
+      let p = this.particulasAgua[i];
+      p.x += p.vx;
+      p.opacidade -= 8;
+      if (p.opacidade <= 0) {
+        this.particulasAgua.splice(i, 1);
+      }
+    }
   }
 
   mover(direcao, fatorIntensidade = 1) {
-    // fatorIntensidade será útil mais tarde quando usarmos o volume da voz
     this.x += direcao * this.velocidadeBase * fatorIntensidade;
   }
 
-  // Devolve o ponto exato de onde a rede sai (o canhão na proa)
   getPosicaoCanhao() {
     return {
-      x: this.x + this.largura - 15,
-      y: this.y + 10
+      x: this.direcaoAtual === 1 ? this.x + this.largura - 15 : this.x + 15,
+      y: this.y + 15
     };
   }
 
   desenhar() {
+    noStroke();
+    for (let p of this.particulasAgua) {
+      fill(255, 255, 255, p.opacidade);
+      ellipse(p.x, p.y, p.raio);
+    }
+
     push();
-    translate(this.x, this.y);
+    translate(this.x + this.largura / 2, this.y + this.altura / 2);
+    rotate(this.anguloBalanço);
 
-    // Casco do barco
-    fill(this.cor);
-    stroke(0);
-    strokeWeight(2);
-    rect(0, 20, this.largura, 30, 5, 5, 20, 20);
+    if (this.direcaoAtual === -1) {
+      scale(-1, 1);
+    }
 
-    // Cabine
-    fill(240);
-    rect(20, 0, 40, 20, 3);
-
-    // Canhão de redes (na proa/frente do barco)
-    fill(80);
-    rect(this.largura - 25, 5, 20, 10, 2);
+    if (this.img) {
+      imageMode(CENTER);
+      image(this.img, 0, 0, this.largura, this.altura);
+    } else {
+      fill(180);
+      rect(-this.largura/2, -this.altura/2, this.largura, this.altura);
+    }
 
     pop();
   }
