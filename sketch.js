@@ -12,12 +12,20 @@ let timerInterval = null;
 // Instâncias de objetos
 let barco;
 let redes = [];
+let criaturas = [];
+
+// Variáveis de Áudio
+let mic;
+let limiarMinimo = 0.02; // Histerese inferior (ignora ruído de fundo)
+let limiarMaximo = 0.3;  // Histerese superior (atinge a velocidade máxima)
 
 function setup() {
   createCanvas(800, 600);
   textAlign(CENTER, CENTER);
   
-  // Criar barco no nível da água (y = 170)
+  // Exige clique para iniciar áudio nos browsers modernos
+  userStartAudio(); 
+  
   barco = new Barco(100, 170, 'padrao');
 }
 
@@ -47,7 +55,7 @@ function desenharEcraInicio() {
 
   textStyle(NORMAL);
   textSize(14);
-  text("Usa as setas para mover o barco\nClica na água para lançar redes", width / 2, 180);
+  text("Usa as SETAS para apontar a direção e a TUA VOZ para acelerar\nClica na água para lançar redes", width / 2, 180);
 
   fill(255);
   stroke(0);
@@ -68,22 +76,52 @@ function desenharEcraJogo() {
   rectMode(CORNER);
   rect(0, 200, width, height - 200);
 
-  // Atualizar e desenhar Barco
-  barco.atualizar();
+  // --- PROCESSAMENTO DE ÁUDIO ---
+  let nivelAudio = mic ? mic.getLevel() : 0;
+  let fatorAudio = 0;
+  
+  if (nivelAudio > limiarMinimo) {
+    // Mapeia o volume: do limite mínimo ao máximo para gerar um multiplicador de velocidade (1x até 4x)
+    fatorAudio = map(nivelAudio, limiarMinimo, limiarMaximo, 1, 4);
+    fatorAudio = constrain(fatorAudio, 1, 4); // Garante que não passa de 4x a velocidade
+  }
+
+  // Atualizar barco com o fator áudio
+  barco.atualizar(fatorAudio);
   barco.desenhar();
+
+  // Gerar novas criaturas
+  if (frameCount % 70 === 0) {
+    gerarCriatura();
+  }
+
+  // Atualizar e desenhar Criaturas
+  for (let i = criaturas.length - 1; i >= 0; i--) {
+    criaturas[i].atualizar();
+    criaturas[i].desenhar();
+
+    if (!criaturas[i].ativa) {
+      criaturas.splice(i, 1);
+    }
+  }
 
   // Atualizar e desenhar Redes
   for (let i = redes.length - 1; i >= 0; i--) {
     redes[i].atualizar();
     redes[i].desenhar();
 
-    // Limpar redes inativas da memória
     if (!redes[i].ativa) {
       redes.splice(i, 1);
     }
   }
 
-  desenharHUD();
+  desenharHUD(nivelAudio);
+}
+
+function gerarCriatura() {
+  let ySorteado = random(260, 540);
+  let tipoSorteado = random() < 0.75 ? 'peixe' : 'tartaruga';
+  criaturas.push(new Criatura(null, ySorteado, tipoSorteado));
 }
 
 function desenharEcraFim() {
@@ -107,7 +145,7 @@ function desenharEcraFim() {
   text("REPETIR", width / 2, 320);
 }
 
-function desenharHUD() {
+function desenharHUD(nivelAudio = 0) {
   fill(0);
   noStroke();
   textSize(16);
@@ -116,6 +154,25 @@ function desenharHUD() {
   text(`Tempo: ${tempoRestante}s`, 30, 30);
   text(`Pontos: ${nf(pontuacao, 3)}`, width / 2 - 40, 30);
   text(`Vidas: ${"♥ ".repeat(vidas)}`, width - 150, 30);
+  
+  // Medidor de Feedback Visual do Áudio (Calibração)
+  textSize(12);
+  text("Volume:", width - 150, 60);
+  stroke(0);
+  fill(200);
+  rectMode(CORNER);
+  rect(width - 150, 75, 100, 10);
+  
+  noStroke();
+  fill(0, 255, 0); // Barra verde dinâmica
+  let barraLargura = map(nivelAudio, 0, limiarMaximo, 0, 100);
+  barraLargura = constrain(barraLargura, 0, 100);
+  rect(width - 150, 75, barraLargura, 10);
+
+  // Linha vermelha para mostrar onde está o limite mínimo de histerese
+  stroke(255, 0, 0);
+  let xLimiar = map(limiarMinimo, 0, limiarMaximo, 0, 100);
+  line(width - 150 + xLimiar, 70, width - 150 + xLimiar, 90);
   
   textAlign(CENTER, CENTER);
 }
@@ -136,7 +193,6 @@ function mousePressed() {
       iniciarJogo();
     }
   } else if (estadoAtual === ESTADO_JOGO) {
-    // Só dispara se clicar abaixo da linha de água
     if (mouseY > 200) {
       let ptCanhao = barco.getPosicaoCanhao();
       redes.push(new Rede(ptCanhao.x, ptCanhao.y, mouseX, mouseY));
@@ -150,10 +206,17 @@ function mousePressed() {
 }
 
 function iniciarJogo() {
+  // Iniciar o microfone na transição (após o clique do utilizador)
+  if (!mic) {
+    mic = new p5.AudioIn();
+    mic.start();
+  }
+
   pontuacao = 0;
   vidas = 3;
   tempoRestante = 60;
   redes = [];
+  criaturas = [];
   estadoAtual = ESTADO_JOGO;
 
   if (timerInterval) clearInterval(timerInterval);
