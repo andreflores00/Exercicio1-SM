@@ -1,23 +1,28 @@
-// Constantes de Estados do Jogo
 const ESTADO_INICIO = 0;
 const ESTADO_JOGO = 1;
 const ESTADO_FIM = 2;
 
 let estadoAtual = ESTADO_INICIO;
 
-// Variáveis de Jogo
 let pontuacao = 0;
 let vidas = 3;
-let tempoRestante = 60; // em segundos
+let tempoRestante = 60;
 let timerInterval = null;
+
+// Instâncias de objetos
+let barco;
+let redes = [];
 
 function setup() {
   createCanvas(800, 600);
   textAlign(CENTER, CENTER);
+  
+  // Criar barco no nível da água (y = 170)
+  barco = new Barco(100, 170, 'padrao');
 }
 
 function draw() {
-  background(135, 206, 235); // Céu / Azul base
+  background(135, 206, 235);
 
   switch (estadoAtual) {
     case ESTADO_INICIO:
@@ -31,11 +36,9 @@ function draw() {
       break;
   }
 
-  // Nome do tema em inglês no canto inferior esquerdo (Requisito obrigatório)
   desenharRodapeTema();
 }
 
-// --- ECRÃ INICIAL ---
 function desenharEcraInicio() {
   fill(20);
   textSize(24);
@@ -44,9 +47,8 @@ function desenharEcraInicio() {
 
   textStyle(NORMAL);
   textSize(14);
-  text("Controlo: Rato/Voz para disparar e mover", width / 2, 180);
+  text("Usa as setas para mover o barco\nClica na água para lançar redes", width / 2, 180);
 
-  // Botão Iniciar / Jogar
   fill(255);
   stroke(0);
   strokeWeight(2);
@@ -59,19 +61,31 @@ function desenharEcraInicio() {
   text("INICIAR / JOGAR", width / 2, 300);
 }
 
-// --- ECRÃ DE JOGO ---
 function desenharEcraJogo() {
-  // Linha da água
+  // Linha de água
   stroke(0, 100, 200);
   fill(30, 144, 255, 180);
   rectMode(CORNER);
   rect(0, 200, width, height - 200);
 
-  // Desenhar HUD (Tempo, Pontos, Vidas)
+  // Atualizar e desenhar Barco
+  barco.atualizar();
+  barco.desenhar();
+
+  // Atualizar e desenhar Redes
+  for (let i = redes.length - 1; i >= 0; i--) {
+    redes[i].atualizar();
+    redes[i].desenhar();
+
+    // Limpar redes inativas da memória
+    if (!redes[i].ativa) {
+      redes.splice(i, 1);
+    }
+  }
+
   desenharHUD();
 }
 
-// --- ECRÃ DE FIM DE JOGO ---
 function desenharEcraFim() {
   fill(20);
   textSize(32);
@@ -82,7 +96,6 @@ function desenharEcraFim() {
   textStyle(NORMAL);
   text(`Pontuação Final: ${pontuacao}`, width / 2, 230);
 
-  // Botão Reiniciar
   fill(255);
   stroke(0);
   rectMode(CENTER);
@@ -94,7 +107,6 @@ function desenharEcraFim() {
   text("REPETIR", width / 2, 320);
 }
 
-// --- HUD (INTERFACE DO JOGO) ---
 function desenharHUD() {
   fill(0);
   noStroke();
@@ -105,10 +117,9 @@ function desenharHUD() {
   text(`Pontos: ${nf(pontuacao, 3)}`, width / 2 - 40, 30);
   text(`Vidas: ${"♥ ".repeat(vidas)}`, width - 150, 30);
   
-  textAlign(CENTER, CENTER); // Reset do alinhamento
+  textAlign(CENTER, CENTER);
 }
 
-// --- RÓTULO OBRIGATÓRIO EM INGLÊS ---
 function desenharRodapeTema() {
   fill(50);
   noStroke();
@@ -118,16 +129,19 @@ function desenharRodapeTema() {
   textAlign(CENTER, CENTER);
 }
 
-// --- INTERAÇÕES DE CLIQUE ---
 function mousePressed() {
   if (estadoAtual === ESTADO_INICIO) {
-    // Clique no botão INICIAR
     if (mouseX > width / 2 - 100 && mouseX < width / 2 + 100 &&
         mouseY > 300 - 25 && mouseY < 300 + 25) {
       iniciarJogo();
     }
+  } else if (estadoAtual === ESTADO_JOGO) {
+    // Só dispara se clicar abaixo da linha de água
+    if (mouseY > 200) {
+      let ptCanhao = barco.getPosicaoCanhao();
+      redes.push(new Rede(ptCanhao.x, ptCanhao.y, mouseX, mouseY));
+    }
   } else if (estadoAtual === ESTADO_FIM) {
-    // Clique no botão REPETIR
     if (mouseX > width / 2 - 100 && mouseX < width / 2 + 100 &&
         mouseY > 320 - 25 && mouseY < 320 + 25) {
       iniciarJogo();
@@ -139,6 +153,7 @@ function iniciarJogo() {
   pontuacao = 0;
   vidas = 3;
   tempoRestante = 60;
+  redes = [];
   estadoAtual = ESTADO_JOGO;
 
   if (timerInterval) clearInterval(timerInterval);
