@@ -9,23 +9,18 @@ let vidas = 3;
 let tempoRestante = 60;
 let timerInterval = null;
 
-// Instâncias de objetos
 let barco;
 let redes = [];
 let criaturas = [];
 
-// Variáveis de Áudio
 let mic;
-let limiarMinimo = 0.02; // Histerese inferior (ignora ruído de fundo)
-let limiarMaximo = 0.3;  // Histerese superior (atinge a velocidade máxima)
+let limiarMinimo = 0.02; 
+let limiarMaximo = 0.3;  
 
 function setup() {
   createCanvas(800, 600);
   textAlign(CENTER, CENTER);
-  
-  // Exige clique para iniciar áudio nos browsers modernos
   userStartAudio(); 
-  
   barco = new Barco(100, 170, 'padrao');
 }
 
@@ -70,52 +65,76 @@ function desenharEcraInicio() {
 }
 
 function desenharEcraJogo() {
-  // Linha de água
   stroke(0, 100, 200);
   fill(30, 144, 255, 180);
   rectMode(CORNER);
   rect(0, 200, width, height - 200);
 
-  // --- PROCESSAMENTO DE ÁUDIO ---
   let nivelAudio = mic ? mic.getLevel() : 0;
   let fatorAudio = 0;
   
   if (nivelAudio > limiarMinimo) {
-    // Mapeia o volume: do limite mínimo ao máximo para gerar um multiplicador de velocidade (1x até 4x)
     fatorAudio = map(nivelAudio, limiarMinimo, limiarMaximo, 1, 4);
-    fatorAudio = constrain(fatorAudio, 1, 4); // Garante que não passa de 4x a velocidade
+    fatorAudio = constrain(fatorAudio, 1, 4); 
   }
 
-  // Atualizar barco com o fator áudio
   barco.atualizar(fatorAudio);
   barco.desenhar();
 
-  // Gerar novas criaturas
   if (frameCount % 70 === 0) {
     gerarCriatura();
   }
 
-  // Atualizar e desenhar Criaturas
   for (let i = criaturas.length - 1; i >= 0; i--) {
     criaturas[i].atualizar();
     criaturas[i].desenhar();
 
-    if (!criaturas[i].ativa) {
-      criaturas.splice(i, 1);
-    }
+    if (!criaturas[i].ativa) criaturas.splice(i, 1);
   }
 
-  // Atualizar e desenhar Redes
   for (let i = redes.length - 1; i >= 0; i--) {
     redes[i].atualizar();
     redes[i].desenhar();
 
-    if (!redes[i].ativa) {
-      redes.splice(i, 1);
-    }
+    if (!redes[i].ativa) redes.splice(i, 1);
   }
 
+  // NOVA FUNÇÃO A SER CHAMADA
+  verificarColisoes();
+
   desenharHUD(nivelAudio);
+}
+
+// --- LÓGICA DE COLISÕES ---
+function verificarColisoes() {
+  for (let r of redes) {
+    if (!r.ativa) continue;
+
+    for (let c of criaturas) {
+      if (!c.ativa) continue;
+
+      // Calcular a distância entre a rede e a criatura
+      let d = dist(r.x, r.y, c.x, c.y);
+      // O raio de colisão é o raio da rede + metade da largura da criatura
+      let zonaColisao = r.raio + (c.largura / 2);
+
+      if (d < zonaColisao) {
+        r.ativa = false; // A rede desaparece
+        c.ativa = false; // A criatura é capturada
+
+        if (c.tipo === 'peixe') {
+          pontuacao += c.pontos; // Ganha pontos
+        } else if (c.tipo === 'tartaruga') {
+          pontuacao += c.pontos; // Perde pontos
+          vidas -= 1;            // Perde vida
+          
+          if (vidas <= 0) {
+            finalizarJogo();
+          }
+        }
+      }
+    }
+  }
 }
 
 function gerarCriatura() {
@@ -152,10 +171,9 @@ function desenharHUD(nivelAudio = 0) {
   textAlign(LEFT, TOP);
   
   text(`Tempo: ${tempoRestante}s`, 30, 30);
-  text(`Pontos: ${nf(pontuacao, 3)}`, width / 2 - 40, 30);
+  text(`Pontos: ${pontuacao}`, width / 2 - 40, 30);
   text(`Vidas: ${"♥ ".repeat(vidas)}`, width - 150, 30);
   
-  // Medidor de Feedback Visual do Áudio (Calibração)
   textSize(12);
   text("Volume:", width - 150, 60);
   stroke(0);
@@ -164,12 +182,11 @@ function desenharHUD(nivelAudio = 0) {
   rect(width - 150, 75, 100, 10);
   
   noStroke();
-  fill(0, 255, 0); // Barra verde dinâmica
+  fill(0, 255, 0); 
   let barraLargura = map(nivelAudio, 0, limiarMaximo, 0, 100);
   barraLargura = constrain(barraLargura, 0, 100);
   rect(width - 150, 75, barraLargura, 10);
 
-  // Linha vermelha para mostrar onde está o limite mínimo de histerese
   stroke(255, 0, 0);
   let xLimiar = map(limiarMinimo, 0, limiarMaximo, 0, 100);
   line(width - 150 + xLimiar, 70, width - 150 + xLimiar, 90);
@@ -206,7 +223,6 @@ function mousePressed() {
 }
 
 function iniciarJogo() {
-  // Iniciar o microfone na transição (após o clique do utilizador)
   if (!mic) {
     mic = new p5.AudioIn();
     mic.start();
