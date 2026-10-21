@@ -84,6 +84,7 @@ let barcosDesbloqueados = ['padrao'];
 let mensagemFrota = '';
 let mensagemDesbloqueio = '';
 let mostrarDesbloqueioAte = 0;
+let mostrarBonusTempoAte = 0;
 
 let pontuacao = 0;
 let vidas = 3;
@@ -555,6 +556,8 @@ function verificarColisoes() {
       if (d < zonaColisao) {
         r.ativa = false;
         c.ativa = false;
+        tempoRestante += 10;
+        mostrarBonusTempoAte = millis() + 1500;
 
         if (c.categoria === 'permitida') {
           pontuacao += c.pontos;
@@ -695,6 +698,17 @@ function desenharHUD(nivelAudio = 0) {
     textStyle(BOLD);
     textSize(13);
     text(mensagemDesbloqueio, width / 2, 66);
+  }
+
+  if (millis() < mostrarBonusTempoAte) {
+    rectMode(CENTER);
+    fill(15, 100, 85, 225);
+    rect(width / 2, 108, 150, 34, 8);
+    fill(255);
+    textAlign(CENTER, CENTER);
+    textStyle(BOLD);
+    textSize(14);
+    text('+10 SEGUNDOS', width / 2, 108);
   }
   
   textAlign(CENTER, CENTER); 

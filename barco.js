@@ -72,7 +72,7 @@ class Barco {
       scale(-1, 1);
     }
 
-    if (this.img) {
+    if (this.img && this.img.width > 0) {
       imageMode(CENTER);
       image(this.img, 0, 0, this.largura, this.altura);
     } else {
