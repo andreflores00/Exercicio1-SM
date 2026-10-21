@@ -22,8 +22,7 @@ class Rede {
     this.x += this.vx;
     this.y += this.vy;
 
-    // A água agora começa a meio do ecrã (y = 300)
-    if (this.y > 300) {
+    if (this.y > 185) {
       this.x += this.forcaCorrente;
     }
 

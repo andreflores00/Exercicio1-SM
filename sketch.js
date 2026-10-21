@@ -1,7 +1,8 @@
 const ESTADO_INICIO = 0;
 const ESTADO_JOGO = 1;
 const ESTADO_FIM = 2;
-const ESTADO_TRANSICAO = 3; // Novo estado para pausa entre níveis
+const ESTADO_TRANSICAO = 3; 
+const LINHA_AGUA = 185;
 
 let estadoAtual = ESTADO_INICIO;
 
@@ -15,19 +16,15 @@ let barco;
 let redes = [];
 let criaturas = [];
 
-// Variáveis de Disparo (Limite de redes)
 let ultimoDisparo = 0;
-let tempoRecarga = 800; // Demora 0.8 segundos entre cada lançamento
+let tempoRecarga = 800; 
 
-// Imagens
 let imgBarco, imgRede, imgFundoMar;
 let imgsCriaturas = {};
 
-// Texto temporário da transição
 let transicaoTitulo = "";
 let transicaoTexto = "";
 
-// Áudio e Calibração
 let mic;
 let limiarMinimo = 0.035; 
 let limiarMaximo = 0.30;  
@@ -55,12 +52,10 @@ function setup() {
   createCanvas(800, 600);
   textAlign(CENTER, CENTER);
   
-  // Barco posicionado mais abaixo na água (y = 270)
-  barco = new Barco(100, 270, 'padrao', imgBarco);
+  barco = new Barco(100, 145, 'padrao', imgBarco);
 }
 
 function draw() {
-  // Reset de cursor global (a mira desativa o cursor normal no jogo)
   cursor(ARROW);
 
   switch (estadoAtual) {
@@ -72,7 +67,7 @@ function draw() {
       desenharEcraJogo();
       break;
     case ESTADO_TRANSICAO:
-      desenharEcraJogo(false); // Desenha o jogo congelado por trás
+      desenharEcraJogo(false); 
       desenharEcraTransicao();
       break;
     case ESTADO_FIM:
@@ -127,7 +122,7 @@ function desenharEcraInicio() {
   textStyle(NORMAL);
   text("•  Direção: Teclas A / D ou Setas", width / 2 - 180, 320);
   text("•  Acelerar: Falar ao microfone", width / 2 - 180, 345);
-  text("•  Disparar: Clicar com o rato na água (Tem limite de velocidade)", width / 2 - 180, 370);
+  text("•  Disparar: Clicar com o rato na água", width / 2 - 180, 370);
   
   textAlign(CENTER, CENTER);
 
@@ -151,31 +146,30 @@ function desenharEcraInicio() {
   textStyle(NORMAL);
 }
 
-// Parâmetro atualizarLógica permite desenhar o jogo congelado durante as pausas
 function desenharEcraJogo(atualizarLogica = true) {
-  // Desenho correto do fundo à escala total
   if (imgFundoMar && imgFundoMar.width > 0) {
     imageMode(CORNER);
-    image(imgFundoMar, 0, 0, width, height); 
+    image(imgFundoMar, 0, 35, width, height);
   } else {
     background(135, 206, 235);
     noStroke();
     fill(20, 100, 180, 220);
     rectMode(CORNER);
-    rect(0, 300, width, height - 300);
+    rect(0, LINHA_AGUA, width, height - LINHA_AGUA);
   }
 
   let nivelAudio = mic ? mic.getLevel() : 0;
   
   if (atualizarLogica) {
-    // Verificar Subida de Nível e Pausar o Jogo
     if (pontuacao >= 75 && nivelAtual === 1) {
       nivelAtual = 2;
-      ativarPausaNivel("NÍVEL 2 DESBLOQUEADO!", "Novas Espécies no Mar:\n\n🐟 Dourada (+15 pts)\n🐴 Cavalo-Marinho (-15 pts)");
+      vidas = 3; 
+      ativarPausaNivel("NÍVEL 2 DESBLOQUEADO!", "Novas Espécies no Mar:\n\n🐟 Dourada (+15 pts)\n🐴 Cavalo-Marinho (-15 pts)\n\n💚 As tuas vidas foram restauradas!");
       return; 
     } else if (pontuacao >= 200 && nivelAtual === 2) {
       nivelAtual = 3;
-      ativarPausaNivel("NÍVEL 3 DESBLOQUEADO!", "Novas Espécies no Mar:\n\n🐟 Atum (+25 pts)\n🐬 Golfinho (-30 pts)");
+      vidas = 3; 
+      ativarPausaNivel("NÍVEL 3 DESBLOQUEADO!", "Novas Espécies no Mar:\n\n🐟 Atum (+25 pts)\n🐬 Golfinho (-30 pts)\n\n💚 As tuas vidas foram restauradas!");
       return;
     }
 
@@ -214,7 +208,7 @@ function desenharEcraJogo(atualizarLogica = true) {
 function ativarPausaNivel(titulo, texto) {
   transicaoTitulo = titulo;
   transicaoTexto = texto;
-  clearInterval(timerInterval); // Pára o relógio
+  clearInterval(timerInterval); 
   estadoAtual = ESTADO_TRANSICAO;
 }
 
@@ -227,13 +221,13 @@ function desenharEcraTransicao() {
   fill(255, 255, 255, 245);
   stroke(200);
   strokeWeight(2);
-  rect(width / 2, height / 2, 450, 250, 12);
+  rect(width / 2, height / 2, 450, 270, 12);
 
   noStroke();
   fill(0, 120, 210);
   textSize(24);
   textStyle(BOLD);
-  text(transicaoTitulo, width / 2, height / 2 - 70);
+  text(transicaoTitulo, width / 2, height / 2 - 80);
 
   fill(50);
   textSize(16);
@@ -241,7 +235,7 @@ function desenharEcraTransicao() {
   text(transicaoTexto, width / 2, height / 2 - 10);
 
   let hoverBtn = mouseX > width / 2 - 100 && mouseX < width / 2 + 100 &&
-                 mouseY > (height / 2 + 70) - 25 && mouseY < (height / 2 + 70) + 25;
+                 mouseY > (height / 2 + 85) - 25 && mouseY < (height / 2 + 85) + 25;
   
   if (hoverBtn) {
     fill(0, 150, 230);
@@ -251,17 +245,17 @@ function desenharEcraTransicao() {
   }
 
   rectMode(CENTER);
-  rect(width / 2, height / 2 + 70, 200, 50, 6);
+  rect(width / 2, height / 2 + 85, 200, 50, 6);
 
   fill(255);
   textSize(16);
   textStyle(BOLD);
-  text("CONTINUAR", width / 2, height / 2 + 70);
+  text("CONTINUAR", width / 2, height / 2 + 85);
   textStyle(NORMAL);
 }
 
 function desenharMira() {
-  noCursor(); // Esconde o rato
+  noCursor(); 
   let podeDisparar = (millis() - ultimoDisparo) > tempoRecarga;
   
   push();
@@ -269,23 +263,20 @@ function desenharMira() {
   strokeWeight(2.5);
   
   if (podeDisparar) {
-    stroke(0, 255, 0); // Verde - Pronto
+    stroke(0, 255, 0); 
   } else {
-    stroke(255, 0, 0); // Vermelho - A recarregar
+    stroke(255, 0, 0); 
     
-    // Pequeno arco à volta da mira para mostrar o tempo de recarga
     noFill();
     let progresso = constrain((millis() - ultimoDisparo) / tempoRecarga, 0, 1);
     arc(0, 0, 30, 30, -HALF_PI, -HALF_PI + (TWO_PI * progresso));
   }
 
-  // Desenho da cruz da mira
   line(-12, 0, -4, 0);
   line(12, 0, 4, 0);
   line(0, -12, 0, -4);
   line(0, 12, 0, 4);
   
-  // Ponto central
   strokeWeight(4);
   point(0, 0);
   pop();
@@ -330,8 +321,8 @@ function verificarColisoes() {
 }
 
 function gerarCriatura() {
-  // Peixes nascem na zona mais profunda da água (y: 340 a 550)
-  let ySorteado = random(340, 550);
+  // Peixes nascem mais abaixo (a partir do Y = 280)
+  let ySorteado = random(280, 540);
   let tipoSorteado;
 
   if (nivelAtual === 1) {
@@ -476,23 +467,20 @@ function mousePressed() {
     }
   } 
   else if (estadoAtual === ESTADO_JOGO) {
-    // Só permite disparar na água (Y > 300) e se o tempo de recarga tiver passado
-    if (mouseY > 300) {
+    if (mouseY > LINHA_AGUA) {
       if (millis() - ultimoDisparo > tempoRecarga) {
         let ptCanhao = barco.getPosicaoCanhao();
         redes.push(new Rede(ptCanhao.x, ptCanhao.y, mouseX, mouseY, imgRede));
-        ultimoDisparo = millis(); // Regista a hora do disparo
+        ultimoDisparo = millis(); 
       }
     }
   }
   else if (estadoAtual === ESTADO_TRANSICAO) {
-    // Clique no botão Continuar
     if (mouseX > width / 2 - 100 && mouseX < width / 2 + 100 &&
-        mouseY > (height / 2 + 70) - 25 && mouseY < (height / 2 + 70) + 25) {
+        mouseY > (height / 2 + 85) - 25 && mouseY < (height / 2 + 85) + 25) {
       
-      estadoAtual = ESTADO_JOGO; // Retoma o jogo
+      estadoAtual = ESTADO_JOGO; 
       
-      // Retoma o relógio
       timerInterval = setInterval(() => {
         if (estadoAtual === ESTADO_JOGO) {
           tempoRestante--;
