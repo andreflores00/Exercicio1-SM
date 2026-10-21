@@ -22,7 +22,8 @@ class Rede {
     this.x += this.vx;
     this.y += this.vy;
 
-    if (this.y > 200) {
+    // A água agora começa a meio do ecrã (y = 300)
+    if (this.y > 300) {
       this.x += this.forcaCorrente;
     }
 
@@ -35,7 +36,7 @@ class Rede {
     if (!this.ativa) return;
 
     push();
-    if (this.img) {
+    if (this.img && this.img.width > 0) {
       imageMode(CENTER);
       image(this.img, this.x, this.y, this.raio * 2.5, this.raio * 2.5);
     } else {

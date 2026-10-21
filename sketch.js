@@ -1,6 +1,7 @@
 const ESTADO_INICIO = 0;
 const ESTADO_JOGO = 1;
 const ESTADO_FIM = 2;
+const ESTADO_TRANSICAO = 3; // Novo estado para pausa entre níveis
 
 let estadoAtual = ESTADO_INICIO;
 
@@ -8,15 +9,23 @@ let pontuacao = 0;
 let vidas = 3;
 let tempoRestante = 60;
 let timerInterval = null;
-let nivelAtual = 1; // Nova variável de Nível
+let nivelAtual = 1;
 
 let barco;
 let redes = [];
 let criaturas = [];
 
+// Variáveis de Disparo (Limite de redes)
+let ultimoDisparo = 0;
+let tempoRecarga = 800; // Demora 0.8 segundos entre cada lançamento
+
 // Imagens
 let imgBarco, imgRede, imgFundoMar;
 let imgsCriaturas = {};
+
+// Texto temporário da transição
+let transicaoTitulo = "";
+let transicaoTexto = "";
 
 // Áudio e Calibração
 let mic;
@@ -46,20 +55,28 @@ function setup() {
   createCanvas(800, 600);
   textAlign(CENTER, CENTER);
   
-  barco = new Barco(100, 160, 'padrao', imgBarco);
+  // Barco posicionado mais abaixo na água (y = 270)
+  barco = new Barco(100, 270, 'padrao', imgBarco);
 }
 
 function draw() {
-  background(135, 206, 235);
+  // Reset de cursor global (a mira desativa o cursor normal no jogo)
+  cursor(ARROW);
 
   switch (estadoAtual) {
     case ESTADO_INICIO:
+      background(135, 206, 235);
       desenharEcraInicio();
       break;
     case ESTADO_JOGO:
       desenharEcraJogo();
       break;
+    case ESTADO_TRANSICAO:
+      desenharEcraJogo(false); // Desenha o jogo congelado por trás
+      desenharEcraTransicao();
+      break;
     case ESTADO_FIM:
+      background(135, 206, 235);
       desenharEcraFim();
       break;
   }
@@ -110,7 +127,7 @@ function desenharEcraInicio() {
   textStyle(NORMAL);
   text("•  Direção: Teclas A / D ou Setas", width / 2 - 180, 320);
   text("•  Acelerar: Falar ao microfone", width / 2 - 180, 345);
-  text("•  Disparar: Clicar com o rato na água", width / 2 - 180, 370);
+  text("•  Disparar: Clicar com o rato na água (Tem limite de velocidade)", width / 2 - 180, 370);
   
   textAlign(CENTER, CENTER);
 
@@ -122,7 +139,6 @@ function desenharEcraInicio() {
     cursor(HAND);
   } else {
     fill(0, 100, 180); 
-    cursor(ARROW);
   }
 
   rectMode(CENTER);
@@ -135,61 +151,144 @@ function desenharEcraInicio() {
   textStyle(NORMAL);
 }
 
-function desenharEcraJogo() {
-  cursor(CROSS); 
-
-  // --- LÓGICA DE NÍVEIS ---
-  if (pontuacao >= 200) {
-    nivelAtual = 3;
-  } else if (pontuacao >= 75) {
-    nivelAtual = 2;
-  } else {
-    nivelAtual = 1;
-  }
-
-  // Fundo do Mar
+// Parâmetro atualizarLógica permite desenhar o jogo congelado durante as pausas
+function desenharEcraJogo(atualizarLogica = true) {
+  // Desenho correto do fundo à escala total
   if (imgFundoMar && imgFundoMar.width > 0) {
     imageMode(CORNER);
-    image(imgFundoMar, 0, 200, width, height - 200);
+    image(imgFundoMar, 0, 0, width, height); 
   } else {
+    background(135, 206, 235);
     noStroke();
     fill(20, 100, 180, 220);
     rectMode(CORNER);
-    rect(0, 200, width, height - 200);
+    rect(0, 300, width, height - 300);
   }
 
-  let nivelAudio = 0;
-  if (mic) {
-    nivelAudio = mic.getLevel();
+  let nivelAudio = mic ? mic.getLevel() : 0;
+  
+  if (atualizarLogica) {
+    // Verificar Subida de Nível e Pausar o Jogo
+    if (pontuacao >= 75 && nivelAtual === 1) {
+      nivelAtual = 2;
+      ativarPausaNivel("NÍVEL 2 DESBLOQUEADO!", "Novas Espécies no Mar:\n\n🐟 Dourada (+15 pts)\n🐴 Cavalo-Marinho (-15 pts)");
+      return; 
+    } else if (pontuacao >= 200 && nivelAtual === 2) {
+      nivelAtual = 3;
+      ativarPausaNivel("NÍVEL 3 DESBLOQUEADO!", "Novas Espécies no Mar:\n\n🐟 Atum (+25 pts)\n🐬 Golfinho (-30 pts)");
+      return;
+    }
+
+    let fatorAudio = 0;
+    if (nivelAudio > limiarMinimo) {
+      fatorAudio = map(nivelAudio, limiarMinimo, limiarMaximo, 1, 3.5);
+      fatorAudio = constrain(fatorAudio, 1, 3.5);
+    }
+    barco.atualizar(fatorAudio);
+
+    if (frameCount % 60 === 0) gerarCriatura();
+    verificarColisoes();
   }
 
-  let fatorAudio = 0;
-  if (nivelAudio > limiarMinimo) {
-    fatorAudio = map(nivelAudio, limiarMinimo, limiarMaximo, 1, 3.5);
-    fatorAudio = constrain(fatorAudio, 1, 3.5);
-  }
-
-  barco.atualizar(fatorAudio);
   barco.desenhar();
 
-  if (frameCount % 60 === 0) {
-    gerarCriatura();
-  }
-
   for (let i = criaturas.length - 1; i >= 0; i--) {
-    criaturas[i].atualizar();
+    if (atualizarLogica) criaturas[i].atualizar();
     criaturas[i].desenhar();
     if (!criaturas[i].ativa) criaturas.splice(i, 1);
   }
 
   for (let i = redes.length - 1; i >= 0; i--) {
-    redes[i].atualizar();
+    if (atualizarLogica) redes[i].atualizar();
     redes[i].desenhar();
     if (!redes[i].ativa) redes.splice(i, 1);
   }
 
-  verificarColisoes();
   desenharHUD(nivelAudio);
+
+  if (atualizarLogica) {
+    desenharMira();
+  }
+}
+
+function ativarPausaNivel(titulo, texto) {
+  transicaoTitulo = titulo;
+  transicaoTexto = texto;
+  clearInterval(timerInterval); // Pára o relógio
+  estadoAtual = ESTADO_TRANSICAO;
+}
+
+function desenharEcraTransicao() {
+  fill(0, 0, 0, 180);
+  rectMode(CORNER);
+  rect(0, 0, width, height);
+
+  rectMode(CENTER);
+  fill(255, 255, 255, 245);
+  stroke(200);
+  strokeWeight(2);
+  rect(width / 2, height / 2, 450, 250, 12);
+
+  noStroke();
+  fill(0, 120, 210);
+  textSize(24);
+  textStyle(BOLD);
+  text(transicaoTitulo, width / 2, height / 2 - 70);
+
+  fill(50);
+  textSize(16);
+  textStyle(NORMAL);
+  text(transicaoTexto, width / 2, height / 2 - 10);
+
+  let hoverBtn = mouseX > width / 2 - 100 && mouseX < width / 2 + 100 &&
+                 mouseY > (height / 2 + 70) - 25 && mouseY < (height / 2 + 70) + 25;
+  
+  if (hoverBtn) {
+    fill(0, 150, 230);
+    cursor(HAND);
+  } else {
+    fill(0, 120, 210);
+  }
+
+  rectMode(CENTER);
+  rect(width / 2, height / 2 + 70, 200, 50, 6);
+
+  fill(255);
+  textSize(16);
+  textStyle(BOLD);
+  text("CONTINUAR", width / 2, height / 2 + 70);
+  textStyle(NORMAL);
+}
+
+function desenharMira() {
+  noCursor(); // Esconde o rato
+  let podeDisparar = (millis() - ultimoDisparo) > tempoRecarga;
+  
+  push();
+  translate(mouseX, mouseY);
+  strokeWeight(2.5);
+  
+  if (podeDisparar) {
+    stroke(0, 255, 0); // Verde - Pronto
+  } else {
+    stroke(255, 0, 0); // Vermelho - A recarregar
+    
+    // Pequeno arco à volta da mira para mostrar o tempo de recarga
+    noFill();
+    let progresso = constrain((millis() - ultimoDisparo) / tempoRecarga, 0, 1);
+    arc(0, 0, 30, 30, -HALF_PI, -HALF_PI + (TWO_PI * progresso));
+  }
+
+  // Desenho da cruz da mira
+  line(-12, 0, -4, 0);
+  line(12, 0, 4, 0);
+  line(0, -12, 0, -4);
+  line(0, 12, 0, 4);
+  
+  // Ponto central
+  strokeWeight(4);
+  point(0, 0);
+  pop();
 }
 
 function keyPressed() {
@@ -223,32 +322,25 @@ function verificarColisoes() {
           pontuacao += c.pontos;
           vidas -= 1;
           
-          if (vidas <= 0) {
-            finalizarJogo();
-          }
+          if (vidas <= 0) finalizarJogo();
         }
       }
     }
   }
 }
 
-// --- GESTOR DE SPAWN POR NÍVEL ---
 function gerarCriatura() {
-  let ySorteado = random(260, 540);
+  // Peixes nascem na zona mais profunda da água (y: 340 a 550)
+  let ySorteado = random(340, 550);
   let tipoSorteado;
 
   if (nivelAtual === 1) {
-    // Nível 1: Apenas Sardinhas e Tartarugas
     if (random() < 0.75) tipoSorteado = 'sardinha';
     else tipoSorteado = 'tartaruga';
-  
   } else if (nivelAtual === 2) {
-    // Nível 2: Adiciona Douradas e Cavalos-marinhos
     if (random() < 0.70) tipoSorteado = random(['sardinha', 'dourada']);
     else tipoSorteado = random(['tartaruga', 'cavalo_marinho']);
-  
   } else {
-    // Nível 3: Adiciona Atuns e Golfinhos
     if (random() < 0.65) tipoSorteado = random(['sardinha', 'dourada', 'atum']);
     else tipoSorteado = random(['tartaruga', 'cavalo_marinho', 'golfinho']);
   }
@@ -291,7 +383,6 @@ function desenharEcraFim() {
     cursor(HAND);
   } else {
     fill(0, 100, 180);
-    cursor(ARROW);
   }
 
   rectMode(CENTER);
@@ -314,7 +405,6 @@ function desenharHUD(nivelAudio = 0) {
   textAlign(LEFT, CENTER);
   textSize(16);
   
-  // Nível Atual em Destaque
   fill(255, 215, 0); 
   textStyle(BOLD);
   text(`Nível ${nivelAtual}`, 20, 20);
@@ -384,12 +474,34 @@ function mousePressed() {
         mouseY > 430 - 25 && mouseY < 430 + 25) {
       iniciarJogo();
     }
-  } else if (estadoAtual === ESTADO_JOGO) {
-    if (mouseY > 200) {
-      let ptCanhao = barco.getPosicaoCanhao();
-      redes.push(new Rede(ptCanhao.x, ptCanhao.y, mouseX, mouseY, imgRede));
+  } 
+  else if (estadoAtual === ESTADO_JOGO) {
+    // Só permite disparar na água (Y > 300) e se o tempo de recarga tiver passado
+    if (mouseY > 300) {
+      if (millis() - ultimoDisparo > tempoRecarga) {
+        let ptCanhao = barco.getPosicaoCanhao();
+        redes.push(new Rede(ptCanhao.x, ptCanhao.y, mouseX, mouseY, imgRede));
+        ultimoDisparo = millis(); // Regista a hora do disparo
+      }
     }
-  } else if (estadoAtual === ESTADO_FIM) {
+  }
+  else if (estadoAtual === ESTADO_TRANSICAO) {
+    // Clique no botão Continuar
+    if (mouseX > width / 2 - 100 && mouseX < width / 2 + 100 &&
+        mouseY > (height / 2 + 70) - 25 && mouseY < (height / 2 + 70) + 25) {
+      
+      estadoAtual = ESTADO_JOGO; // Retoma o jogo
+      
+      // Retoma o relógio
+      timerInterval = setInterval(() => {
+        if (estadoAtual === ESTADO_JOGO) {
+          tempoRestante--;
+          if (tempoRestante <= 0) finalizarJogo();
+        }
+      }, 1000);
+    }
+  }
+  else if (estadoAtual === ESTADO_FIM) {
     if (mouseX > width / 2 - 80 && mouseX < width / 2 + 80 &&
         mouseY > 360 - 20 && mouseY < 360 + 20) {
       iniciarJogo();
@@ -415,14 +527,13 @@ function iniciarJogo() {
   redes = [];
   criaturas = [];
   estadoAtual = ESTADO_JOGO;
+  ultimoDisparo = millis();
 
   if (timerInterval) clearInterval(timerInterval);
   timerInterval = setInterval(() => {
     if (estadoAtual === ESTADO_JOGO) {
       tempoRestante--;
-      if (tempoRestante <= 0) {
-        finalizarJogo();
-      }
+      if (tempoRestante <= 0) finalizarJogo();
     }
   }, 1000);
 }
