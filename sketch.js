@@ -38,25 +38,47 @@ const NIVEIS = [
   {
     titulo: 'Nível 1 · Exploração',
     pontos: '0–74 pontos',
-    especies: 'Sardinha: +10 pontos\nTartaruga: −20 e perde 1 vida',
+    explicacao: [
+      'PODE APANHAR',
+      'Sardinha: +10 pontos',
+      '',
+      'EVITA APANHAR',
+      'Tartaruga: −20 pontos e 1 vida'
+    ],
     objetivo: 'Chega aos 75 pontos para avançar.'
   },
   {
     titulo: 'Nível 2 · Investigação',
     pontos: '75–199 pontos',
-    especies: 'Sardinha: +10 · Dourada: +15\nTartaruga: −20 · Cavalo-marinho: −15',
+    explicacao: [
+      'PODE APANHAR',
+      'Sardinha: +10 · Dourada: +15',
+      '',
+      'EVITA APANHAR',
+      'Tartaruga: −20 · Cavalo-marinho: −15',
+      'Cada captura protegida tira 1 vida.'
+    ],
     objetivo: 'Chega aos 200 pontos para avançar.'
   },
   {
     titulo: 'Nível 3 · Conservação',
     pontos: '200 ou mais pontos',
-    especies: 'Sardinha: +10 · Dourada: +15 · Atum: +25\nEspécies protegidas: pontos negativos e −1 vida',
+    explicacao: [
+      'PODE APANHAR',
+      'Sardinha: +10 · Dourada: +15',
+      'Atum: +25 pontos',
+      '',
+      'ESPÉCIES PROTEGIDAS',
+      'Tartaruga: −20 · Cavalo-marinho: −15',
+      'Golfinho: −30 pontos',
+      'Cada captura protegida tira 1 vida.'
+    ],
     objetivo: 'Evita capturas acidentais e faz a melhor pontuação.'
   }
 ];
 
 let estadoAtual = ESTADO_INICIO;
-let paginaInicio = 'barcos';
+let paginaInicio = 'inicio';
 let barcoSelecionado = 'padrao';
 let barcosDesbloqueados = ['padrao'];
 let mensagemFrota = '';
@@ -158,29 +180,54 @@ function desenharEcraInicio() {
   fill(248, 253, 255, 247);
   rect(width / 2, height / 2, 760, 550, 18);
 
+  if (paginaInicio === 'inicio') {
+    desenharEcraPrincipal();
+    return;
+  }
+
   fill(14, 65, 85);
   textAlign(CENTER, CENTER);
-  textSize(29);
+  textSize(26);
   textStyle(BOLD);
-  text('PESCA SUSTENTÁVEL', width / 2, 66);
+  text('GUIA DO JOGO', width / 2, 56);
   fill(60, 100, 115);
   textSize(13);
   textStyle(NORMAL);
-  text('Protege o oceano. Aprende. Desbloqueia novos barcos.', width / 2, 94);
+  desenharBotao(100, 58, 110, 34, 'VOLTAR');
+  desenharBotao(310, 112, 170, 38, 'NÍVEIS', paginaInicio === 'niveis');
+  desenharBotao(490, 112, 170, 38, 'FROTA', paginaInicio === 'barcos');
 
-  desenharBotao(310, 137, 170, 38, 'FROTA', paginaInicio === 'barcos');
-  desenharBotao(490, 137, 170, 38, 'NÍVEIS', paginaInicio === 'niveis');
-
-  if (paginaInicio === 'barcos') {
-    desenharPaginaFrota();
-  } else {
+  if (paginaInicio === 'niveis') {
     desenharPaginaNiveis();
+  } else {
+    desenharPaginaFrota();
   }
 
   desenharBotao(width / 2, 535, 250, 48, 'INICIAR JOGO', true);
+}
+
+function desenharEcraPrincipal() {
+  fill(14, 65, 85);
+  textAlign(CENTER, CENTER);
+  textSize(31);
+  textStyle(BOLD);
+  text('PESCA SUSTENTÁVEL', width / 2, 135);
   fill(60, 100, 115);
-  textSize(11);
-  text('A / D ou setas: direção · Fala: acelerar · Clique na água: lançar rede', width / 2, 574);
+  textSize(15);
+  textStyle(NORMAL);
+  text('Protege o oceano e evita capturas acidentais.', width / 2, 170);
+
+  const imagemBarco = imgsBarcos[barcoSelecionado];
+  if (imagemBarco && imagemBarco.width > 0) {
+    imageMode(CENTER);
+    image(imagemBarco, width / 2, 300, 240, 160);
+  }
+
+  fill(25, 85, 100);
+  textSize(14);
+  text(`Barco selecionado: ${BARCOS.find(barcoConfig => barcoConfig.id === barcoSelecionado).nome}`, width / 2, 400);
+  desenharBotao(width / 2, 455, 250, 52, 'INICIAR JOGO', true);
+  desenharBotao(width / 2, 520, 290, 42, 'COMO JOGAR E VER NÍVEIS');
   textStyle(NORMAL);
 }
 
@@ -260,15 +307,31 @@ function desenharPaginaNiveis() {
     stroke(220, 232, 235);
     line(x - 88, y - 58, x + 88, y - 58);
     noStroke();
-    fill(35, 70, 80);
-    textSize(12);
-    text(nivel.especies, x, y - 15, 205, 82);
+    textAlign(CENTER, CENTER);
+    textSize(10);
+    let textoY = y - 43;
+    nivel.explicacao.forEach((linha, indiceLinha) => {
+      if (!linha) {
+        textoY += 8;
+        return;
+      }
+
+      const eTitulo = indiceLinha === 0 || linha === 'EVITA APANHAR' || linha === 'ESPÉCIES PROTEGIDAS';
+      fill(eTitulo ? color(0, 120, 135) : color(35, 70, 80));
+      textStyle(eTitulo ? BOLD : NORMAL);
+      text(linha, x, textoY);
+      textoY += 18;
+    });
+
     fill(0, 115, 135);
     textStyle(BOLD);
     textSize(11);
-    text(nivel.objetivo, x, y + 88, 205, 42);
+    text(nivel.objetivo, x, y + 100, 205, 34);
     textStyle(NORMAL);
   });
+  fill(55, 85, 95);
+  textSize(11);
+  text('A/D ou setas: mover · Fala: acelerar · Clica na água para lançar a rede.', width / 2, 466);
 }
 
 function desenharBotao(x, y, largura, altura, rotulo, ativo = false) {
@@ -395,7 +458,7 @@ function desenharEcraJogo(atualizarLogica = true) {
 
 function ativarPausaNivel() {
   transicaoTitulo = `NÍVEL ${nivelAtual} · ${NIVEIS[nivelAtual - 1].titulo.split('· ')[1]}`;
-  transicaoTexto = NIVEIS[nivelAtual - 1].especies;
+  transicaoTexto = NIVEIS[nivelAtual - 1].explicacao.filter(Boolean).join('\n');
   clearInterval(timerInterval); 
   estadoAtual = ESTADO_TRANSICAO;
 }
@@ -647,12 +710,27 @@ function desenharRodapeTema() {
 
 function mousePressed() {
   if (estadoAtual === ESTADO_INICIO) {
-    if (mouseY > 118 && mouseY < 156 && mouseX > 225 && mouseX < 395) {
-      paginaInicio = 'barcos';
+    if (paginaInicio === 'inicio') {
+      if (mouseX > width / 2 - 125 && mouseX < width / 2 + 125 &&
+          mouseY > 429 && mouseY < 481) {
+        iniciarJogo();
+      } else if (mouseX > width / 2 - 145 && mouseX < width / 2 + 145 &&
+          mouseY > 499 && mouseY < 541) {
+        paginaInicio = 'niveis';
+      }
       return;
     }
-    if (mouseY > 118 && mouseY < 156 && mouseX > 405 && mouseX < 575) {
+
+    if (mouseX > 45 && mouseX < 155 && mouseY > 41 && mouseY < 75) {
+      paginaInicio = 'inicio';
+      return;
+    }
+    if (mouseY > 93 && mouseY < 131 && mouseX > 225 && mouseX < 395) {
       paginaInicio = 'niveis';
+      return;
+    }
+    if (mouseY > 93 && mouseY < 131 && mouseX > 405 && mouseX < 575) {
+      paginaInicio = 'barcos';
       return;
     }
     if (paginaInicio === 'barcos') {
@@ -709,7 +787,7 @@ function mousePressed() {
     } else if (mouseX > width / 2 + 25 && mouseX < width / 2 + 225 &&
         mouseY > 352 && mouseY < 398) {
       estadoAtual = ESTADO_INICIO;
-      paginaInicio = 'barcos';
+      paginaInicio = 'inicio';
       mensagemFrota = '';
     }
   }
