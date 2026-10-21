@@ -3,8 +3,65 @@ const ESTADO_JOGO = 1;
 const ESTADO_FIM = 2;
 const ESTADO_TRANSICAO = 3; 
 const LINHA_AGUA = 185;
+const CHAVE_PROGRESSO = 'ecoMarProgresso';
+const BARCOS = [
+  {
+    id: 'padrao',
+    nome: 'Barco de Pesca',
+    imagem: 'barco.png',
+    objetivo: 'Disponível desde o início.',
+    pontos: 0
+  },
+  {
+    id: 'investigacao',
+    nome: 'Barco de Investigação',
+    imagem: 'barco_investigacao.png',
+    objetivo: 'Atinge 75 pontos numa partida.',
+    pontos: 75
+  },
+  {
+    id: 'limpeza',
+    nome: 'Barco de Limpeza',
+    imagem: 'barco_limpeza.png',
+    objetivo: 'Atinge 200 pontos numa partida.',
+    pontos: 200
+  },
+  {
+    id: 'cerco',
+    nome: 'Traineira de Cerco',
+    imagem: 'barco_traineira_cerco.png',
+    objetivo: 'Atinge 350 pontos numa partida.',
+    pontos: 350
+  }
+];
+const NIVEIS = [
+  {
+    titulo: 'Nível 1 · Exploração',
+    pontos: '0–74 pontos',
+    especies: 'Sardinha: +10 pontos\nTartaruga: −20 e perde 1 vida',
+    objetivo: 'Chega aos 75 pontos para avançar.'
+  },
+  {
+    titulo: 'Nível 2 · Investigação',
+    pontos: '75–199 pontos',
+    especies: 'Sardinha: +10 · Dourada: +15\nTartaruga: −20 · Cavalo-marinho: −15',
+    objetivo: 'Chega aos 200 pontos para avançar.'
+  },
+  {
+    titulo: 'Nível 3 · Conservação',
+    pontos: '200 ou mais pontos',
+    especies: 'Sardinha: +10 · Dourada: +15 · Atum: +25\nEspécies protegidas: pontos negativos e −1 vida',
+    objetivo: 'Evita capturas acidentais e faz a melhor pontuação.'
+  }
+];
 
 let estadoAtual = ESTADO_INICIO;
+let paginaInicio = 'barcos';
+let barcoSelecionado = 'padrao';
+let barcosDesbloqueados = ['padrao'];
+let mensagemFrota = '';
+let mensagemDesbloqueio = '';
+let mostrarDesbloqueioAte = 0;
 
 let pontuacao = 0;
 let vidas = 3;
@@ -20,6 +77,7 @@ let ultimoDisparo = 0;
 let tempoRecarga = 800; 
 
 let imgBarco, imgRede, imgFundoMar;
+let imgsBarcos = {};
 let imgsCriaturas = {};
 
 let transicaoTitulo = "";
@@ -36,7 +94,10 @@ function carregarImagemOpcional(caminho) {
 }
 
 function preload() {
-  imgBarco = carregarImagemOpcional('sprites/barco.png');
+  for (const barcoConfig of BARCOS) {
+    imgsBarcos[barcoConfig.id] = carregarImagemOpcional(`sprites/${barcoConfig.imagem}`);
+  }
+  imgBarco = imgsBarcos.padrao;
   imgRede = carregarImagemOpcional('sprites/rede.png');
   imgFundoMar = carregarImagemOpcional('sprites/fundo_mar.png');
 
@@ -51,7 +112,8 @@ function preload() {
 function setup() {
   createCanvas(800, 600);
   textAlign(CENTER, CENTER);
-  
+  carregarProgresso();
+  imgBarco = imgsBarcos[barcoSelecionado];
   barco = new Barco(100, 145, 'padrao', imgBarco);
 }
 
@@ -80,70 +142,196 @@ function draw() {
 }
 
 function desenharEcraInicio() {
-  noStroke();
-  fill(30, 144, 255, 120);
-  rectMode(CORNER);
-  rect(0, height / 2 + 50, width, height / 2);
-  fill(20, 100, 180, 180);
-  rect(0, height / 2 + 100, width, height / 2);
-
-  rectMode(CENTER);
-  fill(255, 255, 255, 240);
-  stroke(200);
-  strokeWeight(1);
-  rect(width / 2, height / 2, 500, 380, 8);
-
-  noStroke();
-  fill(20);
-  textSize(26);
-  textStyle(BOLD);
-  text("PESCA SUSTENTÁVEL", width / 2, 160);
-  
-  fill(80);
-  textSize(14);
-  textStyle(NORMAL);
-  text("REDUÇÃO DE CAPTURAS ACIDENTAIS", width / 2, 190);
-
-  stroke(220);
-  strokeWeight(1);
-  line(width / 2 - 200, 215, width / 2 + 200, 215);
-  noStroke();
-
-  textAlign(LEFT, CENTER);
-  fill(40);
-  textSize(14);
-  textStyle(BOLD);
-  text("Objetivo:", width / 2 - 180, 240);
-  textStyle(NORMAL);
-  text("Ganha pontos para subir de Nível e descobrir novos peixes!", width / 2 - 180, 260);
-
-  textStyle(BOLD);
-  text("Controlos:", width / 2 - 180, 295);
-  textStyle(NORMAL);
-  text("•  Direção: Teclas A / D ou Setas", width / 2 - 180, 320);
-  text("•  Acelerar: Falar ao microfone", width / 2 - 180, 345);
-  text("•  Disparar: Clicar com o rato na água", width / 2 - 180, 370);
-  
-  textAlign(CENTER, CENTER);
-
-  let hoverBtn = mouseX > width / 2 - 100 && mouseX < width / 2 + 100 &&
-                 mouseY > 430 - 25 && mouseY < 430 + 25;
-  
-  if (hoverBtn) {
-    fill(0, 120, 210); 
-    cursor(HAND);
+  if (imgFundoMar && imgFundoMar.width > 0) {
+    imageMode(CORNER);
+    image(imgFundoMar, 0, 0, width, height);
   } else {
-    fill(0, 100, 180); 
+    background(135, 206, 235);
   }
 
-  rectMode(CENTER);
-  rect(width / 2, 430, 200, 50, 4); 
+  noStroke();
+  fill(8, 35, 55, 125);
+  rectMode(CORNER);
+  rect(0, 0, width, height);
 
-  fill(255);
-  textSize(16);
+  rectMode(CENTER);
+  fill(248, 253, 255, 247);
+  rect(width / 2, height / 2, 760, 550, 18);
+
+  fill(14, 65, 85);
+  textAlign(CENTER, CENTER);
+  textSize(29);
   textStyle(BOLD);
-  text("INICIAR JOGO", width / 2, 430);
+  text('PESCA SUSTENTÁVEL', width / 2, 66);
+  fill(60, 100, 115);
+  textSize(13);
   textStyle(NORMAL);
+  text('Protege o oceano. Aprende. Desbloqueia novos barcos.', width / 2, 94);
+
+  desenharBotao(310, 137, 170, 38, 'FROTA', paginaInicio === 'barcos');
+  desenharBotao(490, 137, 170, 38, 'NÍVEIS', paginaInicio === 'niveis');
+
+  if (paginaInicio === 'barcos') {
+    desenharPaginaFrota();
+  } else {
+    desenharPaginaNiveis();
+  }
+
+  desenharBotao(width / 2, 535, 250, 48, 'INICIAR JOGO', true);
+  fill(60, 100, 115);
+  textSize(11);
+  text('A / D ou setas: direção · Fala: acelerar · Clique na água: lançar rede', width / 2, 574);
+  textStyle(NORMAL);
+}
+
+function desenharPaginaFrota() {
+  const posicoes = [
+    { x: 210, y: 250 },
+    { x: 590, y: 250 },
+    { x: 210, y: 380 },
+    { x: 590, y: 380 }
+  ];
+
+  BARCOS.forEach((barcoConfig, indice) => {
+    const { x, y } = posicoes[indice];
+    const desbloqueado = barcosDesbloqueados.includes(barcoConfig.id);
+    const selecionado = barcoSelecionado === barcoConfig.id;
+    const hover = mouseX > x - 175 && mouseX < x + 175 &&
+      mouseY > y - 54 && mouseY < y + 54;
+
+    rectMode(CENTER);
+    stroke(selecionado ? color(0, 135, 160) : color(205, 222, 228));
+    strokeWeight(selecionado ? 3 : 1);
+    fill(selecionado ? color(225, 247, 247) : color(255));
+    rect(x, y, 350, 108, 12);
+    noStroke();
+
+    const imagem = imgsBarcos[barcoConfig.id];
+    if (imagem && imagem.width > 0) {
+      imageMode(CENTER);
+      if (!desbloqueado) tint(130, 150);
+      image(imagem, x - 112, y, 105, 70);
+      noTint();
+    }
+
+    textAlign(LEFT, CENTER);
+    fill(20, 65, 80);
+    textStyle(BOLD);
+    textSize(14);
+    text(barcoConfig.nome, x - 55, y - 28);
+    fill(desbloqueado ? color(25, 125, 95) : color(115, 105, 75));
+    textSize(11);
+    textStyle(BOLD);
+    text(desbloqueado ? (selecionado ? 'SELECIONADO' : 'DESBLOQUEADO') : 'BLOQUEADO', x - 55, y - 7);
+    fill(70, 90, 100);
+    textStyle(NORMAL);
+    textSize(10);
+    text(barcoConfig.objetivo, x - 55, y + 18);
+    textAlign(CENTER, CENTER);
+
+    if (hover) cursor(HAND);
+  });
+
+  fill(50, 85, 100);
+  textSize(12);
+  text(mensagemFrota || 'Desbloqueia barcos ao atingir objetivos de pontuação.', width / 2, 464);
+}
+
+function desenharPaginaNiveis() {
+  const centros = [145, 400, 655];
+  NIVEIS.forEach((nivel, indice) => {
+    const x = centros[indice];
+    const y = 305;
+    rectMode(CENTER);
+    stroke(190, 215, 222);
+    strokeWeight(1);
+    fill(255);
+    rect(x, y, 230, 268, 12);
+    noStroke();
+
+    fill(0, 120, 145);
+    textStyle(BOLD);
+    textSize(16);
+    text(nivel.titulo, x, y - 103);
+    fill(80, 105, 115);
+    textSize(12);
+    textStyle(NORMAL);
+    text(nivel.pontos, x, y - 76);
+    stroke(220, 232, 235);
+    line(x - 88, y - 58, x + 88, y - 58);
+    noStroke();
+    fill(35, 70, 80);
+    textSize(12);
+    text(nivel.especies, x, y - 15, 205, 82);
+    fill(0, 115, 135);
+    textStyle(BOLD);
+    textSize(11);
+    text(nivel.objetivo, x, y + 88, 205, 42);
+    textStyle(NORMAL);
+  });
+}
+
+function desenharBotao(x, y, largura, altura, rotulo, ativo = false) {
+  const hover = mouseX > x - largura / 2 && mouseX < x + largura / 2 &&
+    mouseY > y - altura / 2 && mouseY < y + altura / 2;
+  rectMode(CENTER);
+  noStroke();
+  fill(hover ? color(0, 145, 165) : (ativo ? color(0, 120, 145) : color(50, 105, 120)));
+  rect(x, y, largura, altura, 9);
+  fill(255);
+  textAlign(CENTER, CENTER);
+  textStyle(BOLD);
+  textSize(14);
+  text(rotulo, x, y);
+  textStyle(NORMAL);
+  if (hover) cursor(HAND);
+}
+
+function carregarProgresso() {
+  try {
+    const dados = localStorage.getItem(CHAVE_PROGRESSO);
+    if (!dados) return;
+
+    const progresso = JSON.parse(dados);
+    if (!progresso || !Array.isArray(progresso.barcosDesbloqueados)) {
+      throw new Error('Formato de progresso inválido.');
+    }
+
+    barcosDesbloqueados = [...new Set(['padrao', ...progresso.barcosDesbloqueados])]
+      .filter(id => BARCOS.some(barcoConfig => barcoConfig.id === id));
+    if (BARCOS.some(barcoConfig => barcoConfig.id === progresso.barcoSelecionado &&
+      barcosDesbloqueados.includes(barcoConfig.id))) {
+      barcoSelecionado = progresso.barcoSelecionado;
+    }
+  } catch (erro) {
+    console.warn('Não foi possível carregar o progresso dos barcos.', erro);
+  }
+}
+
+function guardarProgresso() {
+  try {
+    localStorage.setItem(CHAVE_PROGRESSO, JSON.stringify({
+      barcosDesbloqueados,
+      barcoSelecionado
+    }));
+  } catch (erro) {
+    console.warn('Não foi possível guardar o progresso dos barcos.', erro);
+  }
+}
+
+function atualizarDesbloqueios() {
+  const novosBarcos = BARCOS.filter(barcoConfig =>
+    barcoConfig.pontos > 0 &&
+    pontuacao >= barcoConfig.pontos &&
+    !barcosDesbloqueados.includes(barcoConfig.id)
+  );
+
+  if (novosBarcos.length === 0) return;
+
+  barcosDesbloqueados.push(...novosBarcos.map(barcoConfig => barcoConfig.id));
+  guardarProgresso();
+  mensagemDesbloqueio = novosBarcos.map(barcoConfig => barcoConfig.nome).join(', ') + ' desbloqueado!';
+  mostrarDesbloqueioAte = millis() + 4000;
 }
 
 function desenharEcraJogo(atualizarLogica = true) {
@@ -164,12 +352,12 @@ function desenharEcraJogo(atualizarLogica = true) {
     if (pontuacao >= 75 && nivelAtual === 1) {
       nivelAtual = 2;
       vidas = 3; 
-      ativarPausaNivel("NÍVEL 2 DESBLOQUEADO!", "Novas Espécies no Mar:\n\n🐟 Dourada (+15 pts)\n🐴 Cavalo-Marinho (-15 pts)\n\n💚 As tuas vidas foram restauradas!");
+      ativarPausaNivel();
       return; 
     } else if (pontuacao >= 200 && nivelAtual === 2) {
       nivelAtual = 3;
       vidas = 3; 
-      ativarPausaNivel("NÍVEL 3 DESBLOQUEADO!", "Novas Espécies no Mar:\n\n🐟 Atum (+25 pts)\n🐬 Golfinho (-30 pts)\n\n💚 As tuas vidas foram restauradas!");
+      ativarPausaNivel();
       return;
     }
 
@@ -205,9 +393,9 @@ function desenharEcraJogo(atualizarLogica = true) {
   }
 }
 
-function ativarPausaNivel(titulo, texto) {
-  transicaoTitulo = titulo;
-  transicaoTexto = texto;
+function ativarPausaNivel() {
+  transicaoTitulo = `NÍVEL ${nivelAtual} · ${NIVEIS[nivelAtual - 1].titulo.split('· ')[1]}`;
+  transicaoTexto = NIVEIS[nivelAtual - 1].especies;
   clearInterval(timerInterval); 
   estadoAtual = ESTADO_TRANSICAO;
 }
@@ -218,40 +406,37 @@ function desenharEcraTransicao() {
   rect(0, 0, width, height);
 
   rectMode(CENTER);
-  fill(255, 255, 255, 245);
-  stroke(200);
-  strokeWeight(2);
-  rect(width / 2, height / 2, 450, 270, 12);
-
+  fill(248, 253, 255, 250);
   noStroke();
-  fill(0, 120, 210);
-  textSize(24);
+  rect(width / 2, height / 2, 520, 370, 18);
+
+  fill(0, 125, 145);
+  textAlign(CENTER, CENTER);
+  textSize(14);
   textStyle(BOLD);
-  text(transicaoTitulo, width / 2, height / 2 - 80);
-
-  fill(50);
-  textSize(16);
-  textStyle(NORMAL);
-  text(transicaoTexto, width / 2, height / 2 - 10);
-
-  let hoverBtn = mouseX > width / 2 - 100 && mouseX < width / 2 + 100 &&
-                 mouseY > (height / 2 + 85) - 25 && mouseY < (height / 2 + 85) + 25;
-  
-  if (hoverBtn) {
-    fill(0, 150, 230);
-    cursor(HAND);
-  } else {
-    fill(0, 120, 210);
-  }
+  text('NÍVEL DESBLOQUEADO', width / 2, 165);
+  fill(15, 55, 70);
+  textSize(27);
+  text(transicaoTitulo, width / 2, 205);
+  fill(90, 115, 125);
+  textSize(13);
+  text(NIVEIS[nivelAtual - 1].pontos, width / 2, 237);
 
   rectMode(CENTER);
-  rect(width / 2, height / 2 + 85, 200, 50, 6);
-
-  fill(255);
-  textSize(16);
-  textStyle(BOLD);
-  text("CONTINUAR", width / 2, height / 2 + 85);
+  fill(230, 245, 247);
+  rect(width / 2, 330, 440, 115, 12);
+  fill(25, 65, 75);
+  textSize(14);
   textStyle(NORMAL);
+  text('Novas espécies e pontuação:', width / 2, 294);
+  fill(30, 75, 85);
+  textSize(13);
+  text(transicaoTexto, width / 2, 337, 420, 80);
+  noStroke();
+  fill(30, 125, 95);
+  textSize(12);
+  text('As tuas vidas foram restauradas.', width / 2, 410);
+  desenharBotao(width / 2, 466, 210, 48, 'CONTINUAR', true);
 }
 
 function desenharMira() {
@@ -309,8 +494,10 @@ function verificarColisoes() {
 
         if (c.categoria === 'permitida') {
           pontuacao += c.pontos;
+          atualizarDesbloqueios();
         } else if (c.categoria === 'protegida') {
           pontuacao += c.pontos;
+          atualizarDesbloqueios();
           vidas -= 1;
           
           if (vidas <= 0) finalizarJogo();
@@ -348,42 +535,30 @@ function desenharEcraFim() {
   fill(255, 255, 255, 240);
   stroke(200);
   strokeWeight(1);
-  rect(width / 2, height / 2, 400, 260, 8);
+  rect(width / 2, height / 2, 470, 350, 16);
 
   noStroke();
   fill(20);
   textSize(28);
   textStyle(BOLD);
-  text("FIM DE JOGO", width / 2, 210);
+  text("FIM DE JOGO", width / 2, 170);
 
   fill(80);
   textSize(16);
   textStyle(NORMAL);
-  text("Pontuação Final:", width / 2, 250);
+  text("Pontuação Final:", width / 2, 220);
 
   fill(0, 100, 180);
   textSize(36);
   textStyle(BOLD);
-  text(pontuacao, width / 2, 290);
+  text(pontuacao, width / 2, 260);
 
-  let hoverBtn = mouseX > width / 2 - 80 && mouseX < width / 2 + 80 &&
-                 mouseY > 360 - 20 && mouseY < 360 + 20;
-                 
-  if (hoverBtn) {
-    fill(0, 120, 210);
-    cursor(HAND);
-  } else {
-    fill(0, 100, 180);
-  }
-
-  rectMode(CENTER);
-  rect(width / 2, 360, 160, 40, 4);
-
-  fill(255);
-  noStroke();
-  textSize(14);
-  textStyle(BOLD);
-  text("REPETIR", width / 2, 360);
+  fill(55, 90, 105);
+  textSize(13);
+  textStyle(NORMAL);
+  text('Os barcos que desbloqueaste ficam guardados.', width / 2, 305);
+  desenharBotao(width / 2 - 125, 375, 200, 46, 'JOGAR DE NOVO', true);
+  desenharBotao(width / 2 + 125, 375, 200, 46, 'VOLTAR À FROTA');
   textStyle(NORMAL);
 }
 
@@ -446,6 +621,17 @@ function desenharHUD(nivelAudio = 0) {
   let xLimiar = map(limiarMinimo, 0, limiarMaximo, 0, 110);
   line(width - 140 + xLimiar, 76, width - 140 + xLimiar, 90);
   noStroke();
+
+  if (millis() < mostrarDesbloqueioAte) {
+    rectMode(CENTER);
+    fill(15, 100, 85, 225);
+    rect(width / 2, 66, 360, 34, 8);
+    fill(255);
+    textAlign(CENTER, CENTER);
+    textStyle(BOLD);
+    textSize(13);
+    text(mensagemDesbloqueio, width / 2, 66);
+  }
   
   textAlign(CENTER, CENTER); 
 }
@@ -461,8 +647,35 @@ function desenharRodapeTema() {
 
 function mousePressed() {
   if (estadoAtual === ESTADO_INICIO) {
-    if (mouseX > width / 2 - 100 && mouseX < width / 2 + 100 &&
-        mouseY > 430 - 25 && mouseY < 430 + 25) {
+    if (mouseY > 118 && mouseY < 156 && mouseX > 225 && mouseX < 395) {
+      paginaInicio = 'barcos';
+      return;
+    }
+    if (mouseY > 118 && mouseY < 156 && mouseX > 405 && mouseX < 575) {
+      paginaInicio = 'niveis';
+      return;
+    }
+    if (paginaInicio === 'barcos') {
+      const indiceColuna = mouseX > 35 && mouseX < 385 ? 0 :
+        (mouseX > 415 && mouseX < 765 ? 1 : -1);
+      const indiceLinha = mouseY > 196 && mouseY < 304 ? 0 :
+        (mouseY > 326 && mouseY < 434 ? 1 : -1);
+      if (indiceColuna !== -1 && indiceLinha !== -1) {
+        const barcoConfig = BARCOS[indiceLinha * 2 + indiceColuna];
+        if (barcosDesbloqueados.includes(barcoConfig.id)) {
+          barcoSelecionado = barcoConfig.id;
+          imgBarco = imgsBarcos[barcoSelecionado];
+          barco.img = imgBarco;
+          mensagemFrota = `${barcoConfig.nome} selecionado.`;
+          guardarProgresso();
+        } else {
+          mensagemFrota = `Objetivo: ${barcoConfig.objetivo}`;
+        }
+        return;
+      }
+    }
+    if (mouseX > width / 2 - 125 && mouseX < width / 2 + 125 &&
+        mouseY > 511 && mouseY < 559) {
       iniciarJogo();
     }
   } 
@@ -476,8 +689,8 @@ function mousePressed() {
     }
   }
   else if (estadoAtual === ESTADO_TRANSICAO) {
-    if (mouseX > width / 2 - 100 && mouseX < width / 2 + 100 &&
-        mouseY > (height / 2 + 85) - 25 && mouseY < (height / 2 + 85) + 25) {
+    if (mouseX > width / 2 - 105 && mouseX < width / 2 + 105 &&
+        mouseY > 442 && mouseY < 490) {
       
       estadoAtual = ESTADO_JOGO; 
       
@@ -490,9 +703,14 @@ function mousePressed() {
     }
   }
   else if (estadoAtual === ESTADO_FIM) {
-    if (mouseX > width / 2 - 80 && mouseX < width / 2 + 80 &&
-        mouseY > 360 - 20 && mouseY < 360 + 20) {
+    if (mouseX > width / 2 - 225 && mouseX < width / 2 - 25 &&
+        mouseY > 352 && mouseY < 398) {
       iniciarJogo();
+    } else if (mouseX > width / 2 + 25 && mouseX < width / 2 + 225 &&
+        mouseY > 352 && mouseY < 398) {
+      estadoAtual = ESTADO_INICIO;
+      paginaInicio = 'barcos';
+      mensagemFrota = '';
     }
   }
 }
@@ -508,6 +726,12 @@ function iniciarJogo() {
     mic.start();
   }
 
+  barco.img = imgsBarcos[barcoSelecionado];
+  barco.x = 100;
+  barco.yBase = 145;
+  barco.y = 145;
+  barco.direcaoAtual = 1;
+  barco.particulasAgua = [];
   pontuacao = 0;
   vidas = 3;
   tempoRestante = 60;
@@ -527,6 +751,7 @@ function iniciarJogo() {
 }
 
 function finalizarJogo() {
+  atualizarDesbloqueios();
   clearInterval(timerInterval);
   estadoAtual = ESTADO_FIM;
 }
