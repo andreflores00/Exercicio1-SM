@@ -171,19 +171,19 @@ function desenharEcraInicio() {
     background(135, 206, 235);
   }
 
-  noStroke();
-  fill(8, 35, 55, 125);
-  rectMode(CORNER);
-  rect(0, 0, width, height);
-
-  rectMode(CENTER);
-  fill(248, 253, 255, 247);
-  rect(width / 2, height / 2, 760, 550, 18);
-
   if (paginaInicio === 'inicio') {
     desenharEcraPrincipal();
     return;
   }
+
+  noStroke();
+  fill(8, 35, 55, 65);
+  rectMode(CORNER);
+  rect(0, 0, width, height);
+
+  rectMode(CENTER);
+  fill(248, 253, 255, 190);
+  rect(width / 2, height / 2, 760, 550, 18);
 
   fill(14, 65, 85);
   textAlign(CENTER, CENTER);
@@ -227,7 +227,7 @@ function desenharEcraPrincipal() {
   textSize(14);
   text(`Barco selecionado: ${BARCOS.find(barcoConfig => barcoConfig.id === barcoSelecionado).nome}`, width / 2, 400);
   desenharBotao(width / 2, 455, 250, 52, 'INICIAR JOGO', true);
-  desenharBotao(width / 2, 520, 290, 42, 'COMO JOGAR E VER NÍVEIS');
+  desenharBotao(width / 2, 520, 290, 42, 'NÍVEIS E FROTA');
   textStyle(NORMAL);
 }
 
@@ -487,14 +487,15 @@ function desenharEcraTransicao() {
 
   rectMode(CENTER);
   fill(230, 245, 247);
-  rect(width / 2, 330, 440, 115, 12);
+  rect(width / 2, 348, 440, 128, 12);
   fill(25, 65, 75);
   textSize(14);
   textStyle(NORMAL);
-  text('Novas espécies e pontuação:', width / 2, 294);
+  text('Novas espécies e pontuação:', width / 2, 273);
   fill(30, 75, 85);
   textSize(13);
-  text(transicaoTexto, width / 2, 337, 420, 80);
+  textLeading(19);
+  text(transicaoTexto, width / 2, 350, 420, 112);
   noStroke();
   fill(30, 125, 95);
   textSize(12);
