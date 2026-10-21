@@ -8,52 +8,49 @@ let pontuacao = 0;
 let vidas = 3;
 let tempoRestante = 60;
 let timerInterval = null;
+let nivelAtual = 1; // Nova variável de Nível
 
 let barco;
 let redes = [];
 let criaturas = [];
 
-// Ficheiros de Imagem
+// Imagens
 let imgBarco, imgRede, imgFundoMar;
 let imgsCriaturas = {};
 
-// Variáveis de Áudio e Calibração
+// Áudio e Calibração
 let mic;
 let limiarMinimo = 0.035; 
 let limiarMaximo = 0.30;  
 
-function carregarImagemOpcional(caminho, aoCarregar) {
-  loadImage(caminho, aoCarregar, erro => {
-    console.warn(`Imagem opcional indisponível: ${caminho}. Será usado o desenho alternativo.`, erro);
+function carregarImagemOpcional(caminho) {
+  return loadImage(caminho, undefined, erro => {
+    console.warn(`Imagem indisponível: ${caminho}. Será usada a alternativa.`, erro);
   });
+}
+
+function preload() {
+  imgBarco = carregarImagemOpcional('sprites/barco.png');
+  imgRede = carregarImagemOpcional('sprites/rede.png');
+  imgFundoMar = carregarImagemOpcional('sprites/fundo_mar.png');
+
+  imgsCriaturas['sardinha'] = carregarImagemOpcional('sprites/sardinha.png');
+  imgsCriaturas['dourada'] = carregarImagemOpcional('sprites/dourada.png');
+  imgsCriaturas['atum'] = carregarImagemOpcional('sprites/atum.png');
+  imgsCriaturas['tartaruga'] = carregarImagemOpcional('sprites/tartaruga.png');
+  imgsCriaturas['cavalo_marinho'] = carregarImagemOpcional('sprites/cavalo_marinho.png');
+  imgsCriaturas['golfinho'] = carregarImagemOpcional('sprites/golfinho.png');
 }
 
 function setup() {
   createCanvas(800, 600);
   textAlign(CENTER, CENTER);
-
-  carregarImagemOpcional('sprites/barco.png', imagem => {
-    imgBarco = imagem;
-    if (barco) barco.img = imagem;
-  });
-  carregarImagemOpcional('sprites/rede.png', imagem => {
-    imgRede = imagem;
-  });
-  carregarImagemOpcional('sprites/fundo_mar.png', imagem => {
-    imgFundoMar = imagem;
-  });
-
-  for (const especie of ['sardinha', 'dourada', 'atum', 'tartaruga', 'cavalo_marinho', 'golfinho']) {
-    carregarImagemOpcional(`sprites/${especie}.png`, imagem => {
-      imgsCriaturas[especie] = imagem;
-    });
-  }
-
+  
   barco = new Barco(100, 160, 'padrao', imgBarco);
 }
 
 function draw() {
-  background(135, 206, 235); // Céu
+  background(135, 206, 235);
 
   switch (estadoAtual) {
     case ESTADO_INICIO:
@@ -101,13 +98,12 @@ function desenharEcraInicio() {
   noStroke();
 
   textAlign(LEFT, CENTER);
-  
   fill(40);
   textSize(14);
   textStyle(BOLD);
   text("Objetivo:", width / 2 - 180, 240);
   textStyle(NORMAL);
-  text("Capturar peixes permitidos e evitar espécies protegidas.", width / 2 - 180, 260);
+  text("Ganha pontos para subir de Nível e descobrir novos peixes!", width / 2 - 180, 260);
 
   textStyle(BOLD);
   text("Controlos:", width / 2 - 180, 295);
@@ -142,8 +138,17 @@ function desenharEcraInicio() {
 function desenharEcraJogo() {
   cursor(CROSS); 
 
+  // --- LÓGICA DE NÍVEIS ---
+  if (pontuacao >= 200) {
+    nivelAtual = 3;
+  } else if (pontuacao >= 75) {
+    nivelAtual = 2;
+  } else {
+    nivelAtual = 1;
+  }
+
   // Fundo do Mar
-  if (imgFundoMar) {
+  if (imgFundoMar && imgFundoMar.width > 0) {
     imageMode(CORNER);
     image(imgFundoMar, 0, 200, width, height - 200);
   } else {
@@ -215,7 +220,7 @@ function verificarColisoes() {
         if (c.categoria === 'permitida') {
           pontuacao += c.pontos;
         } else if (c.categoria === 'protegida') {
-          pontuacao += c.pontos; // Subtrai os pontos
+          pontuacao += c.pontos;
           vidas -= 1;
           
           if (vidas <= 0) {
@@ -227,17 +232,25 @@ function verificarColisoes() {
   }
 }
 
+// --- GESTOR DE SPAWN POR NÍVEL ---
 function gerarCriatura() {
   let ySorteado = random(260, 540);
-  
-  // 70% hipótese de peixe comercial, 30% hipótese de espécie protegida
   let tipoSorteado;
-  if (random() < 0.70) {
-    let opcoesComerciais = ['sardinha', 'dourada', 'atum'];
-    tipoSorteado = random(opcoesComerciais);
+
+  if (nivelAtual === 1) {
+    // Nível 1: Apenas Sardinhas e Tartarugas
+    if (random() < 0.75) tipoSorteado = 'sardinha';
+    else tipoSorteado = 'tartaruga';
+  
+  } else if (nivelAtual === 2) {
+    // Nível 2: Adiciona Douradas e Cavalos-marinhos
+    if (random() < 0.70) tipoSorteado = random(['sardinha', 'dourada']);
+    else tipoSorteado = random(['tartaruga', 'cavalo_marinho']);
+  
   } else {
-    let opcoesProtegidas = ['tartaruga', 'cavalo_marinho', 'golfinho'];
-    tipoSorteado = random(opcoesProtegidas);
+    // Nível 3: Adiciona Atuns e Golfinhos
+    if (random() < 0.65) tipoSorteado = random(['sardinha', 'dourada', 'atum']);
+    else tipoSorteado = random(['tartaruga', 'cavalo_marinho', 'golfinho']);
   }
 
   criaturas.push(new Criatura(null, ySorteado, tipoSorteado, imgsCriaturas[tipoSorteado]));
@@ -301,21 +314,25 @@ function desenharHUD(nivelAudio = 0) {
   textAlign(LEFT, CENTER);
   textSize(16);
   
+  // Nível Atual em Destaque
+  fill(255, 215, 0); 
+  textStyle(BOLD);
+  text(`Nível ${nivelAtual}`, 20, 20);
+
   fill(255);
-  textStyle(BOLD);
-  text(`Tempo:`, 20, 20);
+  text(`Tempo:`, 95, 20);
   textStyle(NORMAL);
-  text(`${tempoRestante}s`, 85, 20);
+  text(`${tempoRestante}s`, 160, 20);
 
   textStyle(BOLD);
-  text(`Pontos:`, 150, 20);
+  text(`Pontos:`, 220, 20);
   textStyle(NORMAL);
-  text(`${pontuacao}`, 215, 20);
+  text(`${pontuacao}`, 285, 20);
 
   textStyle(BOLD);
-  text(`Vidas:`, 280, 20);
+  text(`Vidas:`, 350, 20);
   fill(255, 80, 80); 
-  text(`${"♥ ".repeat(vidas)}`, 335, 18);
+  text(`${"♥ ".repeat(vidas)}`, 405, 18);
 
   let dirTexto = barco.direcaoAtual === 1 ? "Direita →" : "← Esquerda";
   fill(255);
@@ -394,6 +411,7 @@ function iniciarJogo() {
   pontuacao = 0;
   vidas = 3;
   tempoRestante = 60;
+  nivelAtual = 1;
   redes = [];
   criaturas = [];
   estadoAtual = ESTADO_JOGO;

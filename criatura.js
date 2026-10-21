@@ -1,47 +1,80 @@
 class Criatura {
-  constructor(x, y, tipo = 'peixe') {
+  constructor(x, y, tipo = 'sardinha', img = null) {
     this.x = x;
     this.y = y;
-    this.tipo = tipo; // 'peixe' ou 'tartaruga'
+    this.tipo = tipo;
+    this.img = img;
     this.ativa = true;
 
     this.configurarCriatura();
   }
 
   configurarCriatura() {
-    // Definir direção aleatória (-1: Direita -> Esquerda, 1: Esquerda -> Direita)
+    // 1: Esquerda para Direita | -1: Direita para Esquerda
     this.direcao = random() > 0.5 ? 1 : -1;
 
-    if (this.tipo === 'tartaruga') {
-      this.velocidade = random(1, 2.5);
-      this.pontos = -20; // Penalização ao capturar
-      this.largura = 45;
-      this.altura = 30;
-      this.cor = color(34, 139, 34); // Verde
-    } else {
-      // 'peixe' (espécie comercial permitida)
-      this.velocidade = random(2.5, 4.5);
-      this.pontos = 10; // Recompensa
-      this.largura = 32;
-      this.altura = 18;
-      this.cor = color(255, 140, 0); // Laranja
+    switch (this.tipo) {
+      // --- ESPÉCIES COMERCIAIS PERMITIDAS (DÃO PONTOS) ---
+      case 'sardinha':
+        this.categoria = 'permitida';
+        this.velocidade = random(3, 5);
+        this.pontos = 10;
+        this.largura = 40;
+        this.altura = 20;
+        break;
+      case 'dourada':
+        this.categoria = 'permitida';
+        this.velocidade = random(2.5, 4);
+        this.pontos = 15;
+        this.largura = 50;
+        this.altura = 28;
+        break;
+      case 'atum':
+        this.categoria = 'permitida';
+        this.velocidade = random(4, 5.5);
+        this.pontos = 25;
+        this.largura = 65;
+        this.altura = 32;
+        break;
+
+      // --- ESPÉCIES PROTEGIDAS (TIRAM PONTOS E VIDAS) ---
+      case 'tartaruga':
+        this.categoria = 'protegida';
+        this.velocidade = random(1.5, 2.5);
+        this.pontos = -20;
+        this.largura = 50;
+        this.altura = 35;
+        break;
+      case 'cavalo_marinho':
+        this.categoria = 'protegida';
+        this.velocidade = random(1, 2);
+        this.pontos = -15;
+        this.largura = 28;
+        this.altura = 42;
+        break;
+      case 'golfinho':
+        this.categoria = 'protegida';
+        this.velocidade = random(3.5, 5);
+        this.pontos = -30;
+        this.largura = 80;
+        this.altura = 38;
+        break;
     }
 
-    // Posição inicial fora do ecrã dependendo da direção
+    // Posição inicial fora do ecrã
     if (this.x === undefined || this.x === null) {
-      this.x = this.direcao === 1 ? -30 : width + 30;
+      this.x = this.direcao === 1 ? -this.largura : width + this.largura;
     }
   }
 
   atualizar() {
     if (!this.ativa) return;
 
-    // Movimento horizontal
     this.x += this.velocidade * this.direcao;
 
-    // Desativar quando sair completamente dos limites do ecrã
-    if ((this.direcao === 1 && this.x > width + 50) || 
-        (this.direcao === -1 && this.x < -50)) {
+    // Desativar se sair completamente do ecrã
+    if ((this.direcao === 1 && this.x > width + 60) || 
+        (this.direcao === -1 && this.x < -60)) {
       this.ativa = false;
     }
   }
@@ -52,41 +85,23 @@ class Criatura {
     push();
     translate(this.x, this.y);
 
-    // Inverter visualmente se nadar para a esquerda
+    // Inverter a imagem horizontalmente se nadar para a esquerda
     if (this.direcao === -1) {
       scale(-1, 1);
     }
 
-    if (this.tipo === 'tartaruga') {
-      // Desenho simples de Tartaruga
-      fill(this.cor);
-      stroke(0);
-      strokeWeight(1.5);
-      ellipse(0, 0, this.largura, this.altura); // Casco
-
-      fill(50, 160, 50);
-      ellipse(18, 0, 14, 10); // Cabeça
-
-      // Patas
-      ellipse(-10, -12, 10, 6);
-      ellipse(10, -12, 10, 6);
-      ellipse(-10, 12, 10, 6);
-      ellipse(10, 12, 10, 6);
+    imageMode(CENTER);
+    // Desenha a imagem se ela existir e tiver carregado bem
+    if (this.img && this.img.width > 0) {
+      image(this.img, 0, 0, this.largura, this.altura);
     } else {
-      // Desenho simples de Peixe
-      fill(this.cor);
-      stroke(0);
-      strokeWeight(1.5);
-      ellipse(0, 0, this.largura, this.altura); // Corpo
-
-      // Cauda
-      triangle(-this.largura / 2, 0, -this.largura / 2 - 10, -8, -this.largura / 2 - 10, 8);
-
-      // Olho
-      fill(0);
-      ellipse(this.largura / 4, -3, 3, 3);
+      // Desenho de recurso (fallback) caso a imagem falhe
+      if (this.categoria === 'permitida') fill(255, 140, 0); // Laranja
+      else fill(34, 139, 34); // Verde
+      
+      ellipse(0, 0, this.largura, this.altura);
     }
-
+    
     pop();
   }
 }
