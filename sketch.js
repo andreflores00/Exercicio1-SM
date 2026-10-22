@@ -556,10 +556,10 @@ function verificarColisoes() {
       if (d < zonaColisao) {
         r.ativa = false;
         c.ativa = false;
-        tempoRestante += 10;
-        mostrarBonusTempoAte = millis() + 1500;
 
         if (c.categoria === 'permitida') {
+          tempoRestante += 10;
+          mostrarBonusTempoAte = millis() + 1500;
           pontuacao += c.pontos;
           atualizarDesbloqueios();
         } else if (c.categoria === 'protegida') {
