@@ -2,7 +2,9 @@ const ESTADO_INICIO = 0;
 const ESTADO_JOGO = 1;
 const ESTADO_FIM = 2;
 const ESTADO_TRANSICAO = 3; 
+const ESTADO_CALIBRACAO = 4;
 const LINHA_AGUA = 185;
+const DURACAO_CALIBRACAO = 3000;
 const CHAVE_PROGRESSO = 'ecoMarProgresso';
 const BARCOS = [
   {
@@ -109,6 +111,10 @@ let transicaoTexto = "";
 let mic;
 let limiarMinimo = 0.035; 
 let limiarMaximo = 0.30;  
+let calibracaoIniciada = null;
+let calibracaoSoma = 0;
+let calibracaoAmostras = 0;
+let calibracaoErro = '';
 
 function carregarImagemOpcional(caminho) {
   return loadImage(caminho, undefined, erro => {
@@ -154,6 +160,9 @@ function draw() {
     case ESTADO_TRANSICAO:
       desenharEcraJogo(false); 
       desenharEcraTransicao();
+      break;
+    case ESTADO_CALIBRACAO:
+      desenharEcraCalibracao();
       break;
     case ESTADO_FIM:
       background(135, 206, 235);
@@ -332,7 +341,7 @@ function desenharPaginaNiveis() {
   });
   fill(55, 85, 95);
   textSize(11);
-  text('A/D ou setas: mover · Fala: acelerar · Clica na água para lançar a rede.', width / 2, 466);
+  text('Rato: direção · Fala: acelerar · Clica na água para lançar a rede.', width / 2, 466);
 }
 
 function desenharBotao(x, y, largura, altura, rotulo, ativo = false) {
@@ -425,6 +434,11 @@ function desenharEcraJogo(atualizarLogica = true) {
       return;
     }
 
+    const centroBarco = barco.x + barco.largura / 2;
+    if (mouseX !== centroBarco) {
+      barco.definirDirecao(mouseX > centroBarco ? 1 : -1);
+    }
+
     let fatorAudio = 0;
     if (nivelAudio > limiarMinimo) {
       fatorAudio = map(nivelAudio, limiarMinimo, limiarMaximo, 1, 3.5);
@@ -454,6 +468,69 @@ function desenharEcraJogo(atualizarLogica = true) {
 
   if (atualizarLogica) {
     desenharMira();
+  }
+}
+
+function desenharEcraCalibracao() {
+  if (imgFundoMar && imgFundoMar.width > 0) {
+    imageMode(CORNER);
+    image(imgFundoMar, 0, 0, width, height);
+  } else {
+    background(135, 206, 235);
+  }
+
+  noStroke();
+  fill(248, 253, 255, 235);
+  rectMode(CENTER);
+  rect(width / 2, height / 2, 540, 250, 18);
+  textAlign(CENTER, CENTER);
+
+  if (calibracaoErro) {
+    fill(14, 65, 85);
+    textSize(24);
+    textStyle(BOLD);
+    text('NÃO FOI POSSÍVEL ACEDER AO MICROFONE', width / 2, 250, 480, 60);
+    fill(55, 85, 95);
+    textSize(15);
+    textStyle(NORMAL);
+    text(calibracaoErro, width / 2, 320, 440, 55);
+    desenharBotao(width / 2, 390, 190, 46, 'VOLTAR');
+    return;
+  }
+
+  fill(14, 65, 85);
+  textSize(26);
+  textStyle(BOLD);
+  text('A CALIBRAR O MICROFONE...', width / 2, 250);
+  fill(55, 85, 95);
+  textSize(15);
+  textStyle(NORMAL);
+
+  if (calibracaoIniciada === null) {
+    text('A aguardar acesso ao microfone. Permite a utilização quando solicitado.', width / 2, 300, 460, 50);
+    return;
+  }
+
+  const tempoDecorrido = millis() - calibracaoIniciada;
+  const progresso = constrain(tempoDecorrido / DURACAO_CALIBRACAO, 0, 1);
+  calibracaoSoma += mic.getLevel();
+  calibracaoAmostras++;
+
+  text('Mantém silêncio para medir o ruído ambiente.', width / 2, 300);
+  rectMode(CORNER);
+  fill(205, 225, 230);
+  rect(width / 2 - 180, 345, 360, 14, 7);
+  fill(0, 135, 155);
+  rect(width / 2 - 180, 345, 360 * progresso, 14, 7);
+  text(`${Math.max(0, Math.ceil((DURACAO_CALIBRACAO - tempoDecorrido) / 1000))}s`, width / 2, 380);
+
+  if (tempoDecorrido >= DURACAO_CALIBRACAO) {
+    const ruidoMedio = calibracaoSoma / calibracaoAmostras;
+    limiarMinimo = Math.max(0.015, ruidoMedio * 2 + 0.01);
+    limiarMaximo = Math.max(limiarMinimo + 0.08, ruidoMedio * 6 + 0.04);
+    calibracaoIniciada = null;
+    estadoAtual = ESTADO_JOGO;
+    iniciarCronometro();
   }
 }
 
@@ -530,17 +607,6 @@ function desenharMira() {
   strokeWeight(4);
   point(0, 0);
   pop();
-}
-
-function keyPressed() {
-  if (estadoAtual === ESTADO_JOGO && barco) {
-    if (key === 'a' || key === 'A' || keyCode === LEFT_ARROW) {
-      barco.definirDirecao(-1);
-    } 
-    else if (key === 'd' || key === 'D' || key === 'w' || key === 'W' || keyCode === RIGHT_ARROW) {
-      barco.definirDirecao(1);
-    }
-  }
 }
 
 function verificarColisoes() {
@@ -720,6 +786,11 @@ function desenharRodapeTema() {
   textSize(11);
   textAlign(LEFT, BOTTOM);
   text("Sustainable Fishing and Bycatch Reduction", 15, height - 15);
+  
+  // Adiciona o teu número de aluno aqui!
+  textAlign(RIGHT, BOTTOM);
+  text("André Flores, 33117, ECGM", width - 15, height - 15); 
+  
   textAlign(CENTER, CENTER);
 }
 
@@ -781,18 +852,19 @@ function mousePressed() {
       }
     }
   }
+  else if (estadoAtual === ESTADO_CALIBRACAO && calibracaoErro) {
+    if (mouseX > width / 2 - 95 && mouseX < width / 2 + 95 &&
+        mouseY > 367 && mouseY < 413) {
+      estadoAtual = ESTADO_INICIO;
+      calibracaoErro = '';
+    }
+  }
   else if (estadoAtual === ESTADO_TRANSICAO) {
     if (mouseX > width / 2 - 105 && mouseX < width / 2 + 105 &&
         mouseY > 442 && mouseY < 490) {
       
       estadoAtual = ESTADO_JOGO; 
-      
-      timerInterval = setInterval(() => {
-        if (estadoAtual === ESTADO_JOGO) {
-          tempoRestante--;
-          if (tempoRestante <= 0) finalizarJogo();
-        }
-      }, 1000);
+      iniciarCronometro();
     }
   }
   else if (estadoAtual === ESTADO_FIM) {
@@ -816,9 +888,9 @@ function iniciarJogo() {
 
   if (!mic) {
     mic = new p5.AudioIn();
-    mic.start();
   }
 
+  if (timerInterval) clearInterval(timerInterval);
   barco.img = imgsBarcos[barcoSelecionado];
   barco.x = 100;
   barco.yBase = 145;
@@ -831,10 +903,27 @@ function iniciarJogo() {
   nivelAtual = 1;
   redes = [];
   criaturas = [];
-  estadoAtual = ESTADO_JOGO;
+  calibracaoIniciada = null;
+  calibracaoSoma = 0;
+  calibracaoAmostras = 0;
+  calibracaoErro = '';
+  estadoAtual = ESTADO_CALIBRACAO;
   ultimoDisparo = millis();
 
-  if (timerInterval) clearInterval(timerInterval);
+  try {
+    mic.start(() => {
+      calibracaoIniciada = millis();
+    }, erro => {
+      console.error('Não foi possível calibrar o microfone.', erro);
+      calibracaoErro = 'Verifica a permissão de acesso e tenta novamente.';
+    });
+  } catch (erro) {
+    console.error('Não foi possível iniciar o microfone.', erro);
+    calibracaoErro = 'Verifica a permissão de acesso e tenta novamente.';
+  }
+}
+
+function iniciarCronometro() {
   timerInterval = setInterval(() => {
     if (estadoAtual === ESTADO_JOGO) {
       tempoRestante--;

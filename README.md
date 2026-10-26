@@ -1,6 +1,6 @@
 # EcoMar — Pesca Sustentável e Redução de Capturas Acidentais
 
-> **Projeto educativo desenvolvido em p5.js** com controlo híbrido por teclado e voz (microfone), focado na sensibilização para a sustentabilidade marinha e redução de capturas acidentais (*bycatch*).
+> **Projeto educativo desenvolvido em p5.js** com controlo híbrido pelo rato e voz (microfone), focado na sensibilização para a sustentabilidade marinha e redução de capturas acidentais (*bycatch*).
 
 ---
 
@@ -15,8 +15,8 @@ O jogo introduz mecânicas inovadoras de interação, como a **aceleração cont
 ## 🎮 Mecânicas Principais
 
 * **Controlo de Movimento Híbrido:** 
-  * **Teclado (`A`/`D` ou Setas):** Define/memoriza a direção para onde o barco navega.
-  * **Voz (Microfone):** O volume da voz do jogador determina a aceleração e velocidade do barco (com calibração por histerese para evitar ruído de fundo).
+  * **Rato:** O barco aponta e navega horizontalmente na direção do cursor.
+  * **Voz (Microfone):** Antes de cada partida, o microfone mede o ruído ambiente durante 3 segundos em silêncio e ajusta os limiares de ativação e intensidade da voz. Depois, o volume da voz determina a aceleração e velocidade do barco.
 * **Lançamento de Redes com Mira:** Clique do rato na zona da água para disparar redes. Inclui um sistema de *cooldown* visual (recarga) para evitar disparos em cadeia.
 * **Sistema de Níveis Progressivo:** 
   * *Nível 1:* Sardinhas e Tartarugas.
