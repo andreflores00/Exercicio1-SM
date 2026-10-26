@@ -6147,7 +6147,9 @@ function () {
       var constraints = {
         audio: {
           sampleRate: main.audiocontext.sampleRate,
-          echoCancellation: false
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: false
         }
       }; 
 

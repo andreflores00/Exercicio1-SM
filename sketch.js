@@ -104,6 +104,8 @@ let tempoRecarga = 800;
 let imgBarco, imgRede, imgFundoMar;
 let imgsBarcos = {};
 let imgsCriaturas = {};
+let sons = {};
+let somAmbiente;
 
 let transicaoTitulo = "";
 let transicaoTexto = "";
@@ -111,6 +113,8 @@ let transicaoTexto = "";
 let mic;
 let limiarMinimo = 0.035; 
 let limiarMaximo = 0.30;  
+let sensibilidadeMicrofone = 1;
+let arrastandoSensibilidade = false;
 let calibracaoIniciada = null;
 let calibracaoSoma = 0;
 let calibracaoAmostras = 0;
@@ -136,6 +140,47 @@ function preload() {
   imgsCriaturas['tartaruga'] = carregarImagemOpcional('sprites/tartaruga.png');
   imgsCriaturas['cavalo_marinho'] = carregarImagemOpcional('sprites/cavalo_marinho.png');
   imgsCriaturas['golfinho'] = carregarImagemOpcional('sprites/golfinho.png');
+
+  const ficheirosSom = {
+    ambiente: { caminho: 'audio/ambiente_mar.wav', volume: 0.08 },
+    calibracao: { caminho: 'audio/calibracao_concluida.wav', volume: 0.3 },
+    clique: { caminho: 'audio/clique_botao.wav', volume: 0.25 },
+    rede: { caminho: 'audio/lancar_rede.wav', volume: 0.3 },
+    capturaCorreta: { caminho: 'audio/captura_correta.wav', volume: 0.35 },
+    capturaAcidental: { caminho: 'audio/captura_acidental.wav', volume: 0.35 },
+    nivelNovo: { caminho: 'audio/nivel_novo.wav', volume: 0.35 },
+    desbloqueio: { caminho: 'audio/desbloqueio_barco.wav', volume: 0.35 },
+    fimJogo: { caminho: 'audio/fim_jogo.wav', volume: 0.35 }
+  };
+
+  for (const [nome, ficheiro] of Object.entries(ficheirosSom)) {
+    sons[nome] = loadSound(ficheiro.caminho, () => {
+      sons[nome].setVolume(ficheiro.volume);
+    }, erro => {
+      console.error(`Não foi possível carregar o som: ${ficheiro.caminho}`, erro);
+    });
+  }
+  somAmbiente = sons.ambiente;
+}
+
+function reproduzirSom(nome) {
+  const som = sons[nome];
+  if (som && som.isLoaded()) {
+    userStartAudio();
+    som.play();
+  }
+}
+
+function iniciarSomAmbiente() {
+  if (somAmbiente && somAmbiente.isLoaded() && !somAmbiente.isPlaying()) {
+    somAmbiente.loop();
+  }
+}
+
+function pararSomAmbiente() {
+  if (somAmbiente && somAmbiente.isLoaded() && somAmbiente.isPlaying()) {
+    somAmbiente.stop();
+  }
 }
 
 function setup() {
@@ -236,9 +281,46 @@ function desenharEcraPrincipal() {
   fill(25, 85, 100);
   textSize(14);
   text(`Barco selecionado: ${BARCOS.find(barcoConfig => barcoConfig.id === barcoSelecionado).nome}`, width / 2, 400);
+  desenharSensibilidadeInicio();
   desenharBotao(width / 2, 455, 250, 52, 'INICIAR JOGO', true);
   desenharBotao(width / 2, 520, 290, 42, 'NÍVEIS E FROTA');
   textStyle(NORMAL);
+}
+
+function desenharSensibilidadeInicio() {
+  rectMode(CENTER);
+  noStroke();
+  fill(248, 253, 255, 225);
+  rect(640, 314, 190, 100, 12);
+
+  fill(14, 65, 85);
+  textAlign(CENTER, CENTER);
+  textStyle(BOLD);
+  textSize(12);
+  text('SENSIBILIDADE DO MICROFONE', 640, 286);
+  textStyle(NORMAL);
+  textSize(13);
+  text(`${sensibilidadeMicrofone.toFixed(1)}x`, 640, 310);
+  desenharBarraSensibilidade(590, 335, 100);
+
+  fill(65, 95, 105);
+  textSize(10);
+  text('Menor = acelera menos', 640, 356);
+  textStyle(NORMAL);
+}
+
+function desenharBarraSensibilidade(x, y, largura) {
+  rectMode(CORNER);
+  noStroke();
+  fill(50);
+  rect(x, y, largura, 6, 3);
+  fill(0, 160, 185);
+  rect(x, y, largura * (sensibilidadeMicrofone - 0.5) / 2, 6, 3);
+  fill(255);
+  stroke(0, 100, 120);
+  strokeWeight(1);
+  circle(map(sensibilidadeMicrofone, 0.5, 2.5, x, x + largura), y + 3, 12);
+  noStroke();
 }
 
 function desenharPaginaFrota() {
@@ -405,6 +487,7 @@ function atualizarDesbloqueios() {
   guardarProgresso();
   mensagemDesbloqueio = novosBarcos.map(barcoConfig => barcoConfig.nome).join(', ') + ' desbloqueado!';
   mostrarDesbloqueioAte = millis() + 4000;
+  reproduzirSom('desbloqueio');
 }
 
 function desenharEcraJogo(atualizarLogica = true) {
@@ -439,9 +522,12 @@ function desenharEcraJogo(atualizarLogica = true) {
       barco.definirDirecao(mouseX > centroBarco ? 1 : -1);
     }
 
+    const limiarAtivacao = limiarMinimo / sensibilidadeMicrofone;
+    const limiarIntensidade = limiarMaximo / sensibilidadeMicrofone;
     let fatorAudio = 0;
-    if (nivelAudio > limiarMinimo) {
-      fatorAudio = map(nivelAudio, limiarMinimo, limiarMaximo, 1, 3.5);
+    if (nivelAudio > limiarAtivacao) {
+      fatorAudio = map(nivelAudio, limiarAtivacao, limiarIntensidade, 1, 3.5);
+      fatorAudio = 1 + (constrain(fatorAudio, 1, 3.5) - 1) * sensibilidadeMicrofone;
       fatorAudio = constrain(fatorAudio, 1, 3.5);
     }
     barco.atualizar(fatorAudio);
@@ -530,6 +616,8 @@ function desenharEcraCalibracao() {
     limiarMaximo = Math.max(limiarMinimo + 0.08, ruidoMedio * 6 + 0.04);
     calibracaoIniciada = null;
     estadoAtual = ESTADO_JOGO;
+    reproduzirSom('calibracao');
+    iniciarSomAmbiente();
     iniciarCronometro();
   }
 }
@@ -539,6 +627,7 @@ function ativarPausaNivel() {
   transicaoTexto = NIVEIS[nivelAtual - 1].explicacao.filter(Boolean).join('\n');
   clearInterval(timerInterval); 
   estadoAtual = ESTADO_TRANSICAO;
+  reproduzirSom('nivelNovo');
 }
 
 function desenharEcraTransicao() {
@@ -624,17 +713,20 @@ function verificarColisoes() {
         c.ativa = false;
 
         if (c.categoria === 'permitida') {
+          reproduzirSom('capturaCorreta');
           tempoRestante += 10;
           mostrarBonusTempoAte = millis() + 1500;
           pontuacao += c.pontos;
           atualizarDesbloqueios();
         } else if (c.categoria === 'protegida') {
+          reproduzirSom('capturaAcidental');
           pontuacao += c.pontos;
           atualizarDesbloqueios();
           vidas -= 1;
           
           if (vidas <= 0) finalizarJogo();
         }
+        break;
       }
     }
   }
@@ -731,7 +823,7 @@ function desenharHUD(nivelAudio = 0) {
 
   fill(0, 0, 0, 180);
   rectMode(CORNER);
-  rect(width - 150, 50, 130, 50, 4);
+  rect(width - 150, 50, 130, 100, 4);
   
   fill(255);
   textSize(12);
@@ -741,19 +833,28 @@ function desenharHUD(nivelAudio = 0) {
   fill(50);
   rect(width - 140, 78, 110, 10, 2);
   
-  let corR = map(nivelAudio, limiarMinimo, limiarMaximo, 0, 255);
-  let corG = map(nivelAudio, limiarMinimo, limiarMaximo, 255, 100);
+  const nivelAudioSensivel = nivelAudio * sensibilidadeMicrofone;
+  let corR = map(nivelAudioSensivel, limiarMinimo, limiarMaximo, 0, 255);
+  let corG = map(nivelAudioSensivel, limiarMinimo, limiarMaximo, 255, 100);
   fill(corR, corG, 0); 
   
-  let barraLargura = map(nivelAudio, 0, limiarMaximo, 0, 110);
+  let barraLargura = map(nivelAudioSensivel, 0, limiarMaximo, 0, 110);
   barraLargura = constrain(barraLargura, 0, 110);
   rect(width - 140, 78, barraLargura, 10, 2);
 
   stroke(255);
   strokeWeight(2);
-  let xLimiar = map(limiarMinimo, 0, limiarMaximo, 0, 110);
+  const limiarAtivacao = limiarMinimo / sensibilidadeMicrofone;
+  const limiarIntensidade = limiarMaximo / sensibilidadeMicrofone;
+  let xLimiar = map(limiarAtivacao, 0, limiarIntensidade, 0, 110);
   line(width - 140 + xLimiar, 76, width - 140 + xLimiar, 90);
   noStroke();
+
+  fill(255);
+  textSize(10);
+  textAlign(CENTER, CENTER);
+  text(`Sensibilidade: ${sensibilidadeMicrofone.toFixed(1)}x`, width - 85, 105);
+  desenharBarraSensibilidade(width - 140, 120, 110);
 
   if (millis() < mostrarDesbloqueioAte) {
     rectMode(CENTER);
@@ -797,25 +898,33 @@ function desenharRodapeTema() {
 function mousePressed() {
   if (estadoAtual === ESTADO_INICIO) {
     if (paginaInicio === 'inicio') {
-      if (mouseX > width / 2 - 125 && mouseX < width / 2 + 125 &&
+      if (mouseX >= 585 && mouseX <= 695 && mouseY >= 329 && mouseY <= 347) {
+        arrastandoSensibilidade = true;
+        atualizarSensibilidade(mouseX, 590, 100);
+      } else if (mouseX > width / 2 - 125 && mouseX < width / 2 + 125 &&
           mouseY > 429 && mouseY < 481) {
+        reproduzirSom('clique');
         iniciarJogo();
       } else if (mouseX > width / 2 - 145 && mouseX < width / 2 + 145 &&
           mouseY > 499 && mouseY < 541) {
+        reproduzirSom('clique');
         paginaInicio = 'niveis';
       }
       return;
     }
 
     if (mouseX > 45 && mouseX < 155 && mouseY > 41 && mouseY < 75) {
+      reproduzirSom('clique');
       paginaInicio = 'inicio';
       return;
     }
     if (mouseY > 93 && mouseY < 131 && mouseX > 225 && mouseX < 395) {
+      reproduzirSom('clique');
       paginaInicio = 'niveis';
       return;
     }
     if (mouseY > 93 && mouseY < 131 && mouseX > 405 && mouseX < 575) {
+      reproduzirSom('clique');
       paginaInicio = 'barcos';
       return;
     }
@@ -825,6 +934,7 @@ function mousePressed() {
       const indiceLinha = mouseY > 196 && mouseY < 304 ? 0 :
         (mouseY > 326 && mouseY < 434 ? 1 : -1);
       if (indiceColuna !== -1 && indiceLinha !== -1) {
+        reproduzirSom('clique');
         const barcoConfig = BARCOS[indiceLinha * 2 + indiceColuna];
         if (barcosDesbloqueados.includes(barcoConfig.id)) {
           barcoSelecionado = barcoConfig.id;
@@ -840,21 +950,31 @@ function mousePressed() {
     }
     if (mouseX > width / 2 - 125 && mouseX < width / 2 + 125 &&
         mouseY > 511 && mouseY < 559) {
+      reproduzirSom('clique');
       iniciarJogo();
     }
   } 
   else if (estadoAtual === ESTADO_JOGO) {
+    if (mouseX >= width - 145 && mouseX <= width - 25 &&
+        mouseY >= 112 && mouseY <= 138) {
+      arrastandoSensibilidade = true;
+      atualizarSensibilidade(mouseX, width - 140, 110);
+      return;
+    }
+
     if (mouseY > LINHA_AGUA) {
       if (millis() - ultimoDisparo > tempoRecarga) {
         let ptCanhao = barco.getPosicaoCanhao();
         redes.push(new Rede(ptCanhao.x, ptCanhao.y, mouseX, mouseY, imgRede));
         ultimoDisparo = millis(); 
+        reproduzirSom('rede');
       }
     }
   }
   else if (estadoAtual === ESTADO_CALIBRACAO && calibracaoErro) {
     if (mouseX > width / 2 - 95 && mouseX < width / 2 + 95 &&
         mouseY > 367 && mouseY < 413) {
+      reproduzirSom('clique');
       estadoAtual = ESTADO_INICIO;
       calibracaoErro = '';
     }
@@ -862,6 +982,7 @@ function mousePressed() {
   else if (estadoAtual === ESTADO_TRANSICAO) {
     if (mouseX > width / 2 - 105 && mouseX < width / 2 + 105 &&
         mouseY > 442 && mouseY < 490) {
+      reproduzirSom('clique');
       
       estadoAtual = ESTADO_JOGO; 
       iniciarCronometro();
@@ -870,14 +991,39 @@ function mousePressed() {
   else if (estadoAtual === ESTADO_FIM) {
     if (mouseX > width / 2 - 225 && mouseX < width / 2 - 25 &&
         mouseY > 352 && mouseY < 398) {
+      reproduzirSom('clique');
       iniciarJogo();
     } else if (mouseX > width / 2 + 25 && mouseX < width / 2 + 225 &&
         mouseY > 352 && mouseY < 398) {
+      reproduzirSom('clique');
       estadoAtual = ESTADO_INICIO;
       paginaInicio = 'inicio';
       mensagemFrota = '';
     }
   }
+}
+
+function mouseDragged() {
+  if (arrastandoSensibilidade && estadoAtual === ESTADO_JOGO) {
+    atualizarSensibilidade(mouseX, width - 140, 110);
+  } else if (arrastandoSensibilidade && estadoAtual === ESTADO_INICIO &&
+      paginaInicio === 'inicio') {
+    atualizarSensibilidade(mouseX, 590, 100);
+  }
+}
+
+function mouseReleased() {
+  arrastandoSensibilidade = false;
+}
+
+function atualizarSensibilidade(posicaoX, inicio, largura) {
+  sensibilidadeMicrofone = map(
+    constrain(posicaoX, inicio, inicio + largura),
+    inicio,
+    inicio + largura,
+    0.5,
+    2.5
+  );
 }
 
 function iniciarJogo() {
@@ -891,6 +1037,7 @@ function iniciarJogo() {
   }
 
   if (timerInterval) clearInterval(timerInterval);
+  pararSomAmbiente();
   barco.img = imgsBarcos[barcoSelecionado];
   barco.x = 100;
   barco.yBase = 145;
@@ -933,7 +1080,10 @@ function iniciarCronometro() {
 }
 
 function finalizarJogo() {
+  if (estadoAtual === ESTADO_FIM) return;
   atualizarDesbloqueios();
   clearInterval(timerInterval);
+  pararSomAmbiente();
+  reproduzirSom('fimJogo');
   estadoAtual = ESTADO_FIM;
 }

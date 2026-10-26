@@ -16,7 +16,7 @@ O jogo introduz mecânicas inovadoras de interação, como a **aceleração cont
 
 * **Controlo de Movimento Híbrido:** 
   * **Rato:** O barco aponta e navega horizontalmente na direção do cursor.
-  * **Voz (Microfone):** Antes de cada partida, o microfone mede o ruído ambiente durante 3 segundos em silêncio e ajusta os limiares de ativação e intensidade da voz. Depois, o volume da voz determina a aceleração e velocidade do barco.
+  * **Voz (Microfone):** Antes de cada partida, o microfone mede o ruído ambiente durante 3 segundos em silêncio e ajusta os limiares de ativação e intensidade da voz. A sensibilidade pode ser definida no menu inicial (0,5x–2,5x) e também ajustada no HUD durante o jogo; valores mais baixos reduzem a aceleração mesmo quando a voz fica mais alta. A captação usa cancelamento de eco e supressão de ruído para reduzir a interferência dos sons do jogo.
 * **Lançamento de Redes com Mira:** Clique do rato na zona da água para disparar redes. Inclui um sistema de *cooldown* visual (recarga) para evitar disparos em cadeia.
 * **Sistema de Níveis Progressivo:** 
   * *Nível 1:* Sardinhas e Tartarugas.
@@ -25,6 +25,7 @@ O jogo introduz mecânicas inovadoras de interação, como a **aceleração cont
 * **Frota Desbloqueável:** O progresso do jogador (barcos especiais) é guardado automaticamente no navegador através de `localStorage`.
 * **Correntes Marítimas:** As redes sofrem desvios laterais aleatórios debaixo de água, simulando a corrente oceânica.
 * **Bónus de Tempo:** Cada captura correta concede um bónus de segundos extra no relógio.
+* **Áudio:** Ambiente marítimo durante a partida e efeitos para cliques, lançamento de redes, capturas, calibração, novos níveis, desbloqueios e fim de jogo.
 
 ---
 
